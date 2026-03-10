@@ -21,61 +21,61 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <header className="mb-12">
-        <h1 className="text-4xl font-black mb-2 orange-text-gradient uppercase tracking-tight">Citizen Dashboard</h1>
-        <p className="text-gray-400 font-medium">Welcome back. Track election transparency and civic issues in your constituency.</p>
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      <header className="mb-8 md:mb-12">
+        <h1 className="text-3xl md:text-4xl font-black mb-2 orange-text-gradient uppercase tracking-tight">Citizen Dashboard</h1>
+        <p className="text-sm md:text-base text-gray-400 font-medium leading-relaxed">Welcome back. Track election transparency and civic issues in your constituency.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         {/* Left Column - Main Updates */}
-        <div className="lg:col-span-8 space-y-8">
+        <div className="lg:col-span-8 space-y-6 md:space-y-8">
           {/* Recent Civic Issues */}
-          <section className="glass-card p-8 border-white/5">
+          <section className="glass-card p-6 md:p-8 border-white/5">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold flex items-center space-x-2">
-                <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <h2 className="text-xl md:text-2xl font-bold flex items-center space-x-2">
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <span>Recent Civic Issues</span>
               </h2>
-              <Link href="/issues" className="text-sm text-primary hover:text-accent font-bold">View All</Link>
+              <Link href="/issues" className="text-xs md:text-sm text-primary hover:text-accent font-bold">View All</Link>
             </div>
             <div className="space-y-4">
               {recentIssues.map(issue => (
-                <div key={issue.id} className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 border border-white/5 hover:border-primary/20 transition-all">
+                <div key={issue.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-secondary/50 border border-white/5 hover:border-primary/20 transition-all gap-3">
                   <div>
-                    <h3 className="font-bold text-gray-200">{issue.title}</h3>
-                    <p className="text-sm text-gray-500">{issue.location}</p>
+                    <h3 className="font-bold text-gray-200 text-sm md:text-base">{issue.title}</h3>
+                    <p className="text-xs md:text-sm text-gray-500">{issue.location}</p>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  <span className={`w-fit px-3 py-1 rounded-full text-[10px] md:text-xs font-bold ${
                     issue.status === 'In Progress' ? 'bg-orange-500/10 text-orange-500' : 'bg-blue-500/10 text-blue-500'
                   }`}>
                     {issue.status}
                   </span>
                 </div>
               ))}
-              <Link href="/issues/report" className="block w-full py-4 mt-2 text-center border border-dashed border-white/10 rounded-xl hover:border-primary/50 text-gray-400 hover:text-primary transition-all font-bold">
+              <Link href="/issues/report" className="block w-full py-3 md:py-4 mt-2 text-center border border-dashed border-white/10 rounded-xl hover:border-primary/50 text-gray-400 hover:text-primary transition-all font-bold text-sm">
                 + Report New Issue
               </Link>
             </div>
           </section>
 
           {/* Recent Promises Tracker */}
-          <section className="glass-card p-8 border-white/5">
+          <section className="glass-card p-6 md:p-8 border-white/5">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold flex items-center space-x-2">
-                <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <h2 className="text-xl md:text-2xl font-bold flex items-center space-x-2">
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>Promise Tracker</span>
               </h2>
-              <Link href="/promises" className="text-sm text-primary hover:text-accent font-bold">View All</Link>
+              <Link href="/promises" className="text-xs md:text-sm text-primary hover:text-accent font-bold">View All</Link>
             </div>
             <div className="space-y-6">
               {recentPromises.map(promise => (
                 <div key={promise.id} className="space-y-2">
-                  <div className="flex justify-between text-sm font-bold">
+                  <div className="flex justify-between text-xs md:text-sm font-bold">
                     <span className="text-gray-200">{promise.title}</span>
                     <span className="text-primary">{promise.progress}%</span>
                   </div>
@@ -92,11 +92,11 @@ export default function Dashboard() {
         </div>
 
         {/* Right Column - Sidebars */}
-        <div className="lg:col-span-4 space-y-8">
+        <div className="lg:col-span-4 space-y-6 md:space-y-8">
           {/* Top Candidates */}
-          <section className="glass-card p-8 border-white/5">
+          <section className="glass-card p-6 md:p-8 border-white/5">
             <h2 className="text-xl font-bold mb-6 flex items-center space-x-2">
-              <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5 md:w-6 md:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               <span>Candidates</span>
@@ -108,25 +108,25 @@ export default function Dashboard() {
                   key={candidate.id}
                   className="flex items-center space-x-4 p-3 rounded-xl hover:bg-white/5 transition-all group"
                 >
-                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center font-bold text-primary group-hover:bg-primary/20 group-hover:scale-110 transition-all">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-secondary flex items-center justify-center font-bold text-primary group-hover:bg-primary/20 group-hover:scale-110 transition-all text-sm md:text-base">
                     {candidate.name.charAt(0)}
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-200 group-hover:text-primary transition-colors">{candidate.name}</h3>
-                    <p className="text-xs text-gray-500">{candidate.party} • {candidate.constituency}</p>
+                    <h3 className="font-bold text-gray-200 group-hover:text-primary transition-colors text-sm md:text-base">{candidate.name}</h3>
+                    <p className="text-[10px] md:text-xs text-gray-500">{candidate.party} • {candidate.constituency}</p>
                   </div>
                 </Link>
               ))}
-              <Link href="/candidates" className="block text-center py-3 text-sm font-bold text-gray-500 hover:text-white transition-colors">
+              <Link href="/candidates" className="block text-center py-3 text-xs md:text-sm font-bold text-gray-500 hover:text-white transition-colors">
                 View All Candidates
               </Link>
             </div>
           </section>
 
           {/* Election Announcements */}
-          <section className="glass-card p-8 border-white/5 bg-primary/5">
+          <section className="glass-card p-6 md:p-8 border-white/5 bg-primary/5">
             <h2 className="text-xl font-bold mb-6 flex items-center space-x-2">
-              <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-5 h-5 md:w-6 md:h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.167a2.406 2.406 0 011.416-3.047 1.76 1.76 0 013.417-.592l2.147 6.167a2.406 2.406 0 01-1.416 3.047zM15.882 11.5l3.118 3.118M15.882 15.5l3.118-3.118" />
               </svg>
               <span>Elections</span>
@@ -135,13 +135,13 @@ export default function Dashboard() {
               {elections.map(election => (
                 <div key={election.id} className="p-4 rounded-xl bg-background border border-white/10">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-bold text-gray-200">{election.title}</h3>
+                    <h3 className="font-bold text-gray-200 text-sm md:text-base">{election.title}</h3>
                     <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-primary text-white rounded">
                       {election.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mb-4">{election.date}</p>
-                  <Link href={`/vote/${election.id}`} className="block w-full py-2 bg-primary hover:bg-accent text-white text-center text-sm font-bold rounded-lg transition-all">
+                  <p className="text-xs md:text-sm text-gray-500 mb-4">{election.date}</p>
+                  <Link href={`/vote/${election.id}`} className="block w-full py-2 bg-primary hover:bg-accent text-white text-center text-xs md:text-sm font-bold rounded-lg transition-all">
                     Register to Vote
                   </Link>
                 </div>
