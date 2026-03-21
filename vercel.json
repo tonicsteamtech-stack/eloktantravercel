@@ -3,11 +3,5 @@
   "framework": "nextjs",
   "buildCommand": "pnpm install --frozen-lockfile && pnpm --filter web build",
   "installCommand": "pnpm install --frozen-lockfile",
-  "outputDirectory": "apps/web/.next",
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@next_public_api_url",
-    "NEXT_PUBLIC_REQUEST_TIMEOUT_MS": "@next_public_request_timeout_ms",
-    "NEXT_PUBLIC_DEMO_VOTER_ID": "@next_public_demo_voter_id",
-    "NEXT_PUBLIC_DEMO_REPORTER_ID": "@next_public_demo_reporter_id"
-  }
+  "outputDirectory": "apps/web/.next"
 }
