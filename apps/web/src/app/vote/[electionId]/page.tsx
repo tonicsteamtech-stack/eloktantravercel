@@ -1,12 +1,111 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useStrictVotingLock } from "@/hooks/useStrictVotingLock"
+import axios from "axios"
+import { useParams, useRouter } from 'next/navigation';
+import { useSecureVotingSession } from '@/hooks/useSecureVotingSession';
+
+// Declare the secureAPI for TypeScript
+declare global {
+  interface Window {
+    secureAPI?: {
+      onViolation: (callback: (reason: string) => void) => void;
+    };
+  }
+}
 
 export default function VotingPage() {
+  const params = useParams();
+  const router = useRouter();
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasVoted, setHasVoted] = useState(false);
+  const { isLocked, violated, unlock } = useStrictVotingLock();
+  
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunks = useRef<Blob[]>([]);
+
+  const electionId = params.electionId as string;
+  const { session, error, terminateSession, completeSession } = useSecureVotingSession(electionId);
+
+  // Mock voter ID for demo
+  const voterId = "db7a4175-91fb-40d2-97ab-afaa1febdcdc";
+
+  // 🛡️ Electron & Camera Integration
+  useEffect(() => {
+    // 1. Electron Isolation Check
+    if (window.secureAPI) {
+      window.secureAPI.onViolation((reason) => {
+        console.warn("Electron Violation:", reason);
+        alert(`Security violation detected: ${reason}. Voting terminated.`);
+        window.location.href = "/dashboard";
+      });
+    }
+
+    // 2. Camera Proctoring & Recording
+    const startCameraAndRecording = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+
+        const mediaRecorder = new MediaRecorder(stream);
+        recordedChunks.current = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.start();
+        mediaRecorderRef.current = mediaRecorder;
+        console.log("Proctoring recording started");
+      } catch (err) {
+        console.error("Camera access denied", err);
+        alert("Camera and Microphone access are required for secure voting. Please enable them to proceed.");
+        window.location.href = "/dashboard";
+      }
+    };
+
+    startCameraAndRecording();
+    
+    return () => {
+      if (videoRef.current?.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  // Handle Session Errors
+  useEffect(() => {
+    if (error) {
+      alert(`Access Denied: ${error}`);
+      router.push("/dashboard/elections");
+    }
+  }, [error, router]);
+
+  useEffect(() => {
+    if (violated) {
+      alert("Voting session terminated due to security violation");
+      
+      // [MOCK] 1 & 2: Simulate backend processing for demonstration
+      console.log("Mock: Violation reported", {
+        reason: "tab_switch_or_escape",
+        election_id: params.electionId
+      });
+
+      window.location.href = "/dashboard";
+    }
+  }, [violated, params.electionId]);
 
   const candidates = [
     { id: '1', name: 'Arvind Sharma', party: 'Independent' },
@@ -15,51 +114,76 @@ export default function VotingPage() {
     { id: '4', name: 'Sneha Reddy', party: 'Regional Front' },
   ];
 
-  const handleVote = () => {
-    if (!selectedCandidate) return;
-    setIsSubmitting(true);
-    // Blockchain voting logic would go here
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setHasVoted(true);
-    }, 2000);
+  const stopRecording = () => {
+    return new Promise<Blob>((resolve) => {
+      if (!mediaRecorderRef.current) return;
+
+      mediaRecorderRef.current.onstop = () => {
+        const blob = new Blob(recordedChunks.current, {
+          type: "video/webm"
+        });
+        resolve(blob);
+      };
+
+      mediaRecorderRef.current.stop();
+    });
   };
 
-  if (hasVoted) {
-    return (
-      <div className="container mx-auto px-4 py-24 text-center">
-        <div className="max-w-md mx-auto glass-card p-12 border-white/5 relative overflow-hidden">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-green-500/20 rounded-full blur-[60px]" />
-          <div className="relative z-10">
-            <div className="w-20 h-20 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center mx-auto mb-8">
-              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-3xl font-black mb-4 orange-text-gradient uppercase tracking-tight">Vote Confirmed</h2>
-            <p className="text-gray-400 font-bold mb-8 leading-relaxed">
-              Your vote has been securely recorded on the blockchain. Transparency and anonymity are guaranteed.
-            </p>
-            <div className="p-4 bg-secondary/50 rounded-xl border border-white/5 mb-8">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Your Vote Hash</p>
-              <p className="text-xs font-mono text-primary break-all">0x7a2d...f3b9e1d2c3b4a5d6e7f8g9h0</p>
-            </div>
-            <div className="space-y-4">
-              <Link href="/vote/verify" className="block w-full py-4 bg-primary hover:bg-accent text-white font-black uppercase tracking-widest rounded-xl transition-all shadow-xl shadow-primary/20">
-                Verify Vote Hash
-              </Link>
-              <Link href="/dashboard" className="block w-full py-4 glass-card border-white/10 text-gray-400 hover:text-white font-black uppercase tracking-widest rounded-xl transition-all">
-                Back to Dashboard
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleVote = async (candidateId: string) => {
+    if (!candidateId) return;
+    setIsSubmitting(true);
+    try {
+      // [MOCK] 1 & 2: Simulate backend processing for demonstration
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log("Mock: Vote successfully recorded for candidate", candidateId);
+
+      // 3. Stop Proctoring Recording
+      const videoBlob = await stopRecording();
+      const url = URL.createObjectURL(videoBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `voting-session-${params.electionId}.webm`;
+      a.click();
+
+      // 4. Complete session locally
+      completeSession();
+
+      // 5. Unlock system
+      unlock()
+
+      // 6. Show confirmation and redirect
+      alert("Voting Successful! Your session recording has been downloaded.");
+      router.push("/dashboard");
+
+    } catch (error) {
+      console.error(error)
+      alert("Voting failed")
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleQuit = async () => {
+    if (!confirm("Are you sure you want to quit? This will count as one of your 3 allowed attempts.")) return;
+    
+    // Terminate session locally
+    terminateSession();
+    
+    alert("Session terminated. You must re-verify to try again.");
+    router.push("/login");
+  };
 
   return (
     <div className="container mx-auto px-4 py-12">
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        className="fixed top-4 right-4 w-40 h-32 rounded-lg shadow-2xl z-[60] border-2 border-primary/50 object-cover"
+      />
+      {isLocked && (
+        <div className="fixed inset-0 z-50 pointer-events-none" />
+      )}
       <div className="max-w-3xl mx-auto">
         <header className="mb-12 text-center">
           <h1 className="text-5xl font-black mb-4 orange-text-gradient uppercase tracking-tight">Digital Ballot</h1>
@@ -111,11 +235,17 @@ export default function VotingPage() {
 
           <div className="pt-8 space-y-4">
             <button
-              onClick={handleVote}
+              onClick={() => selectedCandidate && handleVote(selectedCandidate)}
               disabled={!selectedCandidate || isSubmitting}
               className="w-full py-5 bg-primary hover:bg-accent text-white font-black uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? 'Securing Vote on Blockchain...' : 'Cast Anonymous Vote'}
+            </button>
+            <button
+              onClick={handleQuit}
+              className="w-full py-4 glass-card border-white/10 text-gray-500 hover:text-red-500 font-black uppercase tracking-widest rounded-2xl transition-all"
+            >
+              Quit Voting
             </button>
             <p className="text-[10px] text-gray-500 text-center font-black uppercase tracking-widest">
               By casting your vote, you agree to our blockchain-verified anonymous voting protocol.

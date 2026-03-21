@@ -165,3 +165,19 @@ VALUES
   ('c1111111-1111-1111-1111-111111111111', '24x7 Clean Water Coverage', 'Deliver continuous clean water supply in all urban wards and 80% rural households.', 'Varanasi', 'IN_PROGRESS', 45),
   ('c2222222-2222-2222-2222-222222222222', 'Constituency Youth Employment Plan', 'Launch local apprenticeship and startup grant pipeline for first-time job seekers.', 'Wayanad', 'NOT_STARTED', 0)
 ON CONFLICT DO NOTHING;
+
+-- Session control for secure voting
+CREATE TABLE IF NOT EXISTS voting_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  voter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  election_id UUID NOT NULL REFERENCES elections(id) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'TERMINATED', 'COMPLETED', 'BLOCKED')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (voter_id, election_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_voting_sessions_voter_election ON voting_sessions(voter_id, election_id);
+CREATE INDEX IF NOT EXISTS idx_voting_sessions_status ON voting_sessions(status);
