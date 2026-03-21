@@ -25,7 +25,6 @@ export const useStrictVotingLock = () => {
       if (isLocked) {
         violationCount.current += 1
         setViolated(true)
-        alert("Violation detected: Leaving voting screen is not allowed")
       }
     }
 

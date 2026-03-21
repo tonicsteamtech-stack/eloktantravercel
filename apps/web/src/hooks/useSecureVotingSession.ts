@@ -96,11 +96,27 @@ export const useSecureVotingSession = (electionId: string) => {
     saveSession(updated);
   }, [loadSession, saveSession]);
 
+  const resetSession = useCallback(() => {
+    const key = getSessionKey(electionId);
+    localStorage.removeItem(key);
+    setSession(null);
+    setError(null);
+    // Re-initialize directly
+    const deviceId = getDeviceId();
+    const newSession: VotingSession = {
+      deviceId,
+      attemptCount: 0,
+      status: "ACTIVE",
+      lastUpdated: new Date().toISOString(),
+    };
+    saveSession(newSession);
+  }, [electionId, saveSession]);
+
   useEffect(() => {
     if (electionId) {
       startSession();
     }
   }, [electionId, startSession]);
 
-  return { session, error, terminateSession, completeSession };
+  return { session, error, terminateSession, completeSession, resetSession };
 };
