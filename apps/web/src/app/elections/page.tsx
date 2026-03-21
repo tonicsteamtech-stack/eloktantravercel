@@ -71,12 +71,23 @@ export default function ElectionsPage() {
               </div>
 
               {election.status === 'ACTIVE' ? (
-                <Link 
-                  href={`/vote/${election.id}`}
-                  className="w-full py-4 bg-primary hover:bg-accent text-white text-center font-black uppercase tracking-widest transition-all"
-                >
-                  Cast Your Vote →
-                </Link>
+                <div className="flex flex-col">
+                  <Link 
+                    href={`/vote/${election.id}`}
+                    className="w-full py-4 bg-primary hover:bg-accent text-white text-center font-black uppercase tracking-widest transition-all"
+                  >
+                    Cast Your Vote →
+                  </Link>
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem(`voter_session_${election.id}`);
+                      window.location.href = `/vote/${election.id}`;
+                    }}
+                    className="w-full py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 font-black text-[10px] uppercase tracking-widest border-t border-white/5 transition-all"
+                  >
+                    Developer: Test Vote (No Limits)
+                  </button>
+                </div>
               ) : (
                 <div className="w-full py-4 bg-secondary/50 text-gray-600 text-center font-black uppercase tracking-widest text-xs">
                   {election.status === 'UPCOMING' ? 'Voting Opens Soon' : 'Election Closed'}
