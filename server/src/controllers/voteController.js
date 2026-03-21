@@ -39,6 +39,7 @@ const generateVotingToken = async (req, res) => {
     });
 
     res.json({
+      success: true,
       token,
       userId,
       status: 'READY_FOR_VOTING'

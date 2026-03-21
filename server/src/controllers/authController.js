@@ -71,7 +71,7 @@ const faceVerify = async (req, res) => {
       return res.status(403).json({ match: false, error: 'Low face confidence score' });
     }
 
-    res.json(mockResponse);
+    res.json({ success: true, ...mockResponse });
   } catch (error) {
     res.status(500).json({ error: 'Face verification failed' });
   }

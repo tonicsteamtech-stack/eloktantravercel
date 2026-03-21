@@ -36,7 +36,7 @@ const create = async (userData) => {
 
   // Fallback to file-based mock
   const store = getStore();
-  const newUser = { ...userData, _id: Date.now().toString(), createdAt: new Date() };
+  const newUser = { ...userData, _id: Date.now().toString(), id: Date.now().toString(), createdAt: new Date() };
   store.users.push(newUser);
   saveStore(store);
   return newUser;

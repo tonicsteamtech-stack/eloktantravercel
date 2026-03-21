@@ -37,9 +37,9 @@ app.use((req, res, next) => {
 
 // Routes
 app.get('/auth/digilocker/callback', authController.digilockerCallback);
-app.post('/auth/face-verify', authController.faceVerify);
+app.post('/verify-face', authController.faceVerify);
 app.post('/risk/evaluate', voteController.evaluateRisk);
-app.post('/vote/generate-token', voteController.generateVotingToken);
+app.post('/generate-token', voteController.generateVotingToken);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
