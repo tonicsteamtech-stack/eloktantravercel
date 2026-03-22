@@ -1,0 +1,21 @@
+{
+  "users": [
+    {
+      "name": "Sarthak Mangalwedhekar",
+      "voterId": "MH/123/456789",
+      "dob": "2000-01-01T00:00:00.000Z",
+      "hasVoted": false,
+      "_id": "1774095040103",
+      "createdAt": "2026-03-21T12:10:40.103Z"
+    }
+  ],
+  "tokens": [
+    {
+      "token": "a9530636-99d9-4f91-8a40-26ef5435f868",
+      "userId": "1774095040103",
+      "used": false,
+      "_id": "1774095046626",
+      "createdAt": "2026-03-21T12:10:46.626Z"
+    }
+  ]
+}

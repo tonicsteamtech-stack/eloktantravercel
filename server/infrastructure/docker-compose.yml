@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: eloktantra
+    ports:
+      - "5432:5432"
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+    depends_on:
+      - auth-service
+      - candidate-service
+      - issue-service
+
+  auth-service:
+    build:
+      context: ../services/auth-service
+    ports:
+      - "4001:4001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/eloktantra
+      - JWT_SECRET=dev-secret-key
+      - PORT=4001
+    depends_on:
+      - database
+
+  candidate-service:
+    build:
+      context: ../services/candidate-service
+    ports:
+      - "4002:4002"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/eloktantra
+      - PORT=4002
+    depends_on:
+      - database
+
+  issue-service:
+    build:
+      context: ../services/issue-service
+    ports:
+      - "4004:4004"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@database:5432/eloktantra
+      - PORT=4004
+    depends_on:
+      - database
+
+  web:
+    build:
+      context: ../apps/web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://api-gateway:4000
+    depends_on:
+      - api-gateway

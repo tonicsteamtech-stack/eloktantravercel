@@ -1,0 +1,26 @@
+{
+  "elections": [
+    {
+      "category": "State Assembly Elections",
+      "items": [
+        {
+          "id": "delhi-2020",
+          "name": "Delhi Assembly Election 2020"
+        },
+        {
+          "id": "maharashtra-2024",
+          "name": "Maharashtra Assembly Election 2024"
+        }
+      ]
+    },
+    {
+      "category": "Lok Sabha Elections",
+      "items": [
+        {
+          "id": "loksabha-2024",
+          "name": "Lok Sabha Election 2024"
+        }
+      ]
+    }
+  ]
+}

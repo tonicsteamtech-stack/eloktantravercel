@@ -6,6 +6,7 @@ const getActiveElection = async (req, res) => {
     if (!election) {
       return res.status(200).json({ success: true, title: 'No active election', id: null });
     }
+    // Remote might expect the election directly or wrapped in data
     res.json(election);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch active election' });
@@ -15,7 +16,11 @@ const getActiveElection = async (req, res) => {
 const getElections = async (req, res) => {
   try {
     const elections = await electionRepository.findAll();
-    res.json({ success: true, elections });
+    res.json({ 
+      success: true, 
+      elections: elections,
+      data: elections // Backward compatibility with remote expectation
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch elections' });
   }

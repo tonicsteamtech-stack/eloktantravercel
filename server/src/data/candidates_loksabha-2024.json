@@ -1,0 +1,17 @@
+[
+  {"id": 1, "name": "Abu Bakar Rahmani", "constituency": "MADHUBANI", "party": "Country Citizen Party", "criminalCases": 0, "netWorth": 1358312},
+  {"id": 2, "name": "Adv Najib Shaikh", "constituency": "AKOLA", "party": "Indian National League", "criminalCases": 0, "netWorth": 2587782},
+  {"id": 3, "name": "Advocate Balwinder Kumar", "constituency": "JALANDHAR (SC)", "party": "BSP", "criminalCases": 1, "netWorth": 4972497},
+  {"id": 4, "name": "Anandswamy Gaddadevarmath", "constituency": "HAVERI", "party": "IND", "criminalCases": 1, "netWorth": 568154912},
+  {"id": 5, "name": "Bhagyaraj. J", "constituency": "COIMBATORE", "party": "IND", "criminalCases": 0, "netWorth": 47983303},
+  {"id": 6, "name": "Boominathan C", "constituency": "MADURAI", "party": "IND", "criminalCases": 0, "netWorth": 937466},
+  {"id": 7, "name": "Jagadesan A", "constituency": "KALLAKURICHI", "party": "Naam Tamilar Katchi", "criminalCases": 1, "netWorth": 5176118},
+  {"id": 8, "name": "Karthikairajan P", "constituency": "SIVAGANGA", "party": "IND", "criminalCases": 0, "netWorth": 32946},
+  {"id": 9, "name": "L. Khaja Hussain", "constituency": "KADAPA", "party": "IND", "criminalCases": 0, "netWorth": 9246142},
+  {"id": 10, "name": "M.Nagaraj", "constituency": "CHENNAI CENTRAL", "party": "IND", "criminalCases": 1, "netWorth": 3221200},
+  {"id": 11, "name": "P. Sivakozhundu", "constituency": "CUDDALORE", "party": "DMDK", "criminalCases": 1, "netWorth": 8408000},
+  {"id": 12, "name": "Sathiyamoorthy, S.", "constituency": "TIRUVANNAMALAI", "party": "Makkal Nala Kazhagam", "criminalCases": 0, "netWorth": 23971104},
+  {"id": 13, "name": "Senthilmallar K", "constituency": "RAMANATHAPURAM", "party": "IND", "criminalCases": 1, "netWorth": 1274059},
+  {"id": 14, "name": "Shoban Babu V", "constituency": "BANGALORE NORTH", "party": "Indian Labour Party (Ambedkar Phule)", "criminalCases": 0, "netWorth": 50000},
+  {"id": 15, "name": "A . Raj", "constituency": "BANGALORE SOUTH", "party": "IND", "criminalCases": 0, "netWorth": 3454000}
+]

@@ -1,25 +1,21 @@
 {
-  "name": "eloktantra-server",
-  "version": "1.0.0",
-  "description": "Pre-voting authentication pipeline for eLoktantra",
-  "main": "src/app.js",
+  "name": "eloktantra-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.31.0",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
-  },
-  "dependencies": {
-    "axios": "^1.6.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-rate-limit": "^8.3.1",
-    "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.0.0",
-    "morgan": "^1.10.0",
-    "redis": "^4.6.10",
-    "uuid": "^9.0.1"
+    "build": "turbo run build",
+    "dev": "turbo run dev --concurrency 20",
+    "lint": "turbo run lint",
+    "db:push": "pnpm --filter @eloktantra/database db:push",
+    "db:generate": "pnpm --filter @eloktantra/database db:generate",
+    "db:seed": "pnpm --filter @eloktantra/database db:seed"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
+    "turbo": "^1.12.0",
+    "typescript": "^5.0.0"
+  },
+  "packageManager": "pnpm@10.31.0"
 }

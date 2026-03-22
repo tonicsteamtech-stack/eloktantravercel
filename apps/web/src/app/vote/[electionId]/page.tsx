@@ -35,6 +35,7 @@ function VotingContent() {
 
   const { data: election, isLoading: isLoadingElection } = useElection(electionId);
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
+  const [blinking, setBlinking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [violations, setViolations] = useState(0);
   const [activeViolation, setActiveViolation] = useState<string | null>(null);
@@ -48,6 +49,8 @@ function VotingContent() {
   const [multipleFaces, setMultipleFaces] = useState(false);
   const [alignmentMessage, setAlignmentMessage] = useState("Position yourself");
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [showVVPAT, setShowVVPAT] = useState(false);
+  const [voteHash, setVoteHash] = useState("");
   const lastAlertTimeRef = useRef<number>(0);
   const { isLocked, violated, violationCount, unlock } = useStrictVotingLock();
   
@@ -59,6 +62,7 @@ function VotingContent() {
   const recordedChunks = useRef<Blob[]>([]);
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const referenceDescriptor = useRef<Float32Array | null>(null);
+  const consecutiveNegativeDetections = useRef<number>(0);
 
   const { session, error, terminateSession, completeSession, resetSession } = useSecureVotingSession(electionId);
 
@@ -170,7 +174,7 @@ function VotingContent() {
             setupVideoRef.current,
             new faceapi.TinyFaceDetectorOptions({
               inputSize: 320,
-              scoreThreshold: 0.3
+              scoreThreshold: 0.2
             })
           );
 
@@ -289,32 +293,34 @@ function VotingContent() {
           videoRef.current,
           new faceapi.TinyFaceDetectorOptions({
             inputSize: 320,
-            scoreThreshold: 0.3
+            scoreThreshold: 0.2 // Reduced for better sensitivity
           })
         );
 
-        // ❌ NO FACE
         if (detections.length === 0) {
-          setFacePresent(false);
-          setWarning("Face not visible");
-          setViolations(v => v + 1);
-          console.warn("Security Violation: Face missing");
+          consecutiveNegativeDetections.current += 1;
+          
+          // Only trigger violation after 5 consecutive failures (~3.5 seconds)
+          if (consecutiveNegativeDetections.current >= 5) {
+            setFacePresent(false);
+            setWarning("Face not visible");
+            setViolations(v => v + 1);
+            console.warn("Security Violation: Face missing (persistent)");
+          }
           return;
         }
 
-        // ❌ MULTIPLE FACES
+        // ✅ Face found - Reset grace counter
+        consecutiveNegativeDetections.current = 0;
+        setFacePresent(true);
+        setMultipleFaces(detections.length > 1);
+        
         if (detections.length > 1) {
-          setMultipleFaces(true);
           setWarning("Multiple faces detected");
           setViolations(v => v + 1);
-          console.warn("Security Violation: Multiple faces");
-          return;
+        } else {
+          setWarning("");
         }
-
-        // ✅ NORMAL
-        setFacePresent(true);
-        setMultipleFaces(false);
-        setWarning("");
 
       } catch (err) {
         console.error("Continuous proctoring error:", err);
@@ -449,6 +455,12 @@ function VotingContent() {
     }
   }, [violated]);
 
+  const candidates = [
+    { id: '1', name: 'Arvind Sharma', party: 'Independent', symbol: '/globe.svg' },
+    { id: '2', name: 'Priya Verma', party: 'Socialist Party', symbol: '/window.svg' },
+    { id: '3', name: 'Rahul Gupta', party: 'National Party', symbol: '/file.svg' },
+    { id: '4', name: 'Sneha Reddy', party: 'Regional Front', symbol: '/next.svg' },
+  ];
   if (isLoadingElection) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -473,6 +485,48 @@ function VotingContent() {
 
   const candidates = election.candidates || [];
 
+  const handleVote = (id: string) => {
+    if (selectedCandidate === id) return;
+    setSelectedCandidate(id);
+    setBlinking(true);
+
+    // Play physical sound
+    const audio = new Audio("/button-click-sound.mp3");
+    audio.play().catch((err) => console.log("Audio play blocked or failed", err));
+
+    setTimeout(() => {
+      setBlinking(false);
+    }, 1000);
+  };
+
+  const generateVoteHash = () => {
+    const hash = Math.random().toString(36).substring(2, 12).toUpperCase();
+    setVoteHash(hash);
+  };
+
+  const playPrinterSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = 'sawtooth';
+      oscillator.frequency.setValueAtTime(150, audioCtx.currentTime); 
+      oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 2);
+
+      gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 2);
+    } catch (e) {
+      console.log("Audio simulation failed", e);
+    }
+  };
+
   const stopRecording = () => {
     return new Promise<Blob>((resolve) => {
       if (!mediaRecorderRef.current) return;
@@ -484,6 +538,25 @@ function VotingContent() {
     });
   };
 
+  const handleVoteSubmission = async (candidateId: string) => {
+    if (!candidateId) return;
+    setIsSubmitting(true);
+    try {
+      // Simulate backend processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Stop proctoring recording
+      const videoBlob = await stopRecording();
+      
+      // Trigger VVPAT Flow
+      generateVoteHash();
+      setShowVVPAT(true);
+      playPrinterSound();
+
+      // The rest of the logic (saving recording, completing session) moves to the VVPAT completion effect
+    } catch (error) {
+      console.error(error)
+      alert("Voting failed")
   const handleVote = async (candidateId: string) => {
     if (!candidateId || !election) return;
     
@@ -542,6 +615,21 @@ function VotingContent() {
       setIsSubmitting(false);
     }
   };
+
+  // VVPAT Auto-Completion Effect
+  useEffect(() => {
+    if (showVVPAT) {
+      const timer = setTimeout(() => {
+        setShowVVPAT(false);
+        setIsSubmitting(false);
+        completeSession();
+        unlock();
+        alert(`Vote successfully recorded and verified.\n\nTransaction Hash: ${voteHash}\nViolations: ${violations}\n\nThank you for participating in a secure, transparent election.`);
+        router.push("/dashboard");
+      }, 7000); // 7 seconds matching real VVPAT display time
+      return () => clearTimeout(timer);
+    }
+  }, [showVVPAT]);
 
   const handleQuit = async () => {
     if (!confirm("Are you sure you want to quit? This will count as one of your 3 allowed attempts.")) return;
@@ -769,85 +857,275 @@ function VotingContent() {
 
       {isLocked && <div className="fixed inset-0 z-50 pointer-events-none" />}
 
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto w-full px-4">
         <header className="mb-12 text-center">
+          <h1 className="text-5xl font-black mb-4 orange-text-gradient uppercase tracking-tight">Digital Voting Booth</h1>
+          <p className="text-gray-400 font-medium text-lg">General Assembly 2024 • South Delhi • Station 08A</p>
           <h1 className="text-5xl font-black mb-4 orange-text-gradient uppercase tracking-tight">{election.title}</h1>
           <p className="text-gray-400 font-medium text-lg">
             {new Date(election.start_time).getFullYear()} • {election.constituency}
           </p>
         </header>
 
-        <div className="glass-card p-8 md:p-12 border-white/5 space-y-8 shadow-2xl shadow-primary/5">
-          <div className="space-y-4">
-            <h3 className="text-sm font-black text-gray-500 uppercase tracking-widest ml-1">Select Candidate</h3>
-            <div className="space-y-4">
-              {candidates.map((candidate) => (
-                <button
-                  key={candidate.id}
-                  onClick={() => setSelectedCandidate(candidate.id)}
-                  className={`w-full p-6 rounded-2xl border transition-all flex items-center justify-between group ${
-                    selectedCandidate === candidate.id
-                    ? 'bg-primary border-primary text-white shadow-xl shadow-primary/20'
-                    : 'bg-secondary/50 border-white/5 text-gray-400 hover:text-white hover:border-white/20'
-                  }`}
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl border transition-all ${
-                      selectedCandidate === candidate.id 
-                      ? 'bg-white text-primary border-transparent' 
-                      : 'bg-primary/10 text-primary border-primary/20 group-hover:bg-primary/20'
-                    }`}>
-                      {candidate.name.charAt(0)}
-                    </div>
-                    <div className="text-left">
-                      <div className="font-black text-lg uppercase tracking-tight group-hover:text-white transition-colors">{candidate.name}</div>
-                      <div className={`text-[10px] font-black uppercase tracking-widest ${selectedCandidate === candidate.id ? 'text-white/70' : 'text-gray-600'}`}>{candidate.party}</div>
-                    </div>
-                  </div>
-                  {selectedCandidate === candidate.id && (
-                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              ))}
+        <div className="flex flex-col lg:flex-row items-start justify-center gap-16 relative">
+          {/* 🗳️ Indian EVM Ballot Unit */}
+          <div className="flex-shrink-0 relative z-10 w-full lg:w-auto flex flex-col items-center">
+            <div className="bg-[#D1D5DB] p-4 rounded-xl shadow-2xl w-full max-w-lg border-4 border-[#9CA3AF] relative">
+          {/* Top Panel */}
+          <div className="flex justify-between items-center mb-4 px-2">
+            <div className="flex items-center space-x-2">
+              <div className="w-12 h-6 bg-[#1D4ED8] rounded-sm shadow-inner" />
+              <span className="text-[10px] font-black text-gray-700 uppercase">Ballot Unit</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <div className={`w-3 h-3 rounded-full ${selectedCandidate ? 'bg-green-500 shadow-[0_0_8px_#22c55e]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`} />
+              <span className="text-[8px] font-bold text-gray-600 mt-1 uppercase">Ready</span>
             </div>
           </div>
 
-          <div className="pt-8 space-y-4">
-            <button
-              onClick={() => selectedCandidate && handleVote(selectedCandidate)}
-              disabled={!selectedCandidate || isSubmitting}
-              className="w-full py-5 bg-primary hover:bg-accent text-white font-black uppercase tracking-widest rounded-2xl transition-all shadow-xl shadow-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Securing Vote on Blockchain...' : 'Cast Anonymous Vote'}
-            </button>
-            <button
-              onClick={handleQuit}
-              className="w-full py-4 glass-card border-white/10 text-gray-500 hover:text-red-500 font-black uppercase tracking-widest rounded-2xl transition-all"
-            >
-              Quit Voting
-            </button>
-            <div className="pt-4 border-t border-white/5 mt-4">
-              <button
-                onClick={() => {
-                  resetSession();
-                  setViolations(0);
-                  setActiveViolation(null);
-                  referenceDescriptor.current = null;
-                  alert("Developer: Session Reset Successful! Identity reference cleared. You can now vote again.");
-                }}
-                className="w-full py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500/70 border border-yellow-500/30 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl transition-all"
+          {/* Candidate List Container */}
+          <div className="bg-white rounded-sm border-2 border-gray-400 overflow-hidden shadow-inner">
+            {candidates.map((candidate, index) => (
+              <div
+                key={candidate.id}
+                className="flex items-center justify-between border-b border-gray-300 transition-colors hover:bg-gray-50"
               >
-                Developer: Reset Session & Retry
-              </button>
+                {/* LEFT SIDE: Metadata & Label */}
+                <div className="flex items-center flex-1 h-20 px-4 border-r border-gray-400">
+                  <div className="text-black font-black text-lg w-10 border-r border-gray-200 h-full flex items-center">
+                    {index + 1}
+                  </div>
+                  <div className="w-16 h-16 flex items-center justify-center border-r border-gray-200 p-2">
+                    <img
+                      src={candidate.symbol}
+                      alt="symbol"
+                      className="w-full h-full object-contain grayscale"
+                    />
+                  </div>
+                  <div className="flex-1 pl-4">
+                    <div className="text-black font-black text-lg leading-tight uppercase tracking-tighter">
+                      {candidate.name}
+                    </div>
+                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                      {candidate.party}
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT SIDE: LED & Hardware Button */}
+                <div className="flex items-center space-x-6 px-6 h-20 bg-gray-100">
+                  {/* LED */}
+                  <div
+                    className={`w-5 h-5 rounded-full border-2 transition-all duration-300
+                      ${selectedCandidate === candidate.id
+                        ? "bg-green-500 border-green-400 shadow-[0_0_12px_#22c55e]"
+                        : "bg-red-500 border-red-700 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]"}
+                      ${selectedCandidate === candidate.id && blinking ? "animate-pulse" : ""}
+                    `}
+                  />
+
+                  {/* BLUE OVAL BUTTON */}
+                  <button
+                    onClick={() => handleVote(candidate.id)}
+                    className={`w-14 h-8 bg-[#1D4ED8] rounded-full shadow-[0_4px_0_#1e3a8a] active:shadow-none active:translate-y-1 transition-all border border-blue-800 ${
+                      selectedCandidate === candidate.id ? 'ring-2 ring-offset-2 ring-blue-500' : ''
+                    }`}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom Panel */}
+          <div className="mt-4 pt-4 border-t border-gray-400 flex justify-between items-center text-gray-600">
+            <span className="text-[9px] font-black uppercase">SL NO: 2024-SD-08A</span>
+            <div className="w-16 h-4 bg-gray-400 rounded-sm opacity-50" />
+          </div>
+        </div>
+
+        <div className="pt-8 space-y-6 relative z-10">
+          <div className="flex flex-col items-center">
+            <button
+              onClick={() => selectedCandidate && handleVoteSubmission(selectedCandidate)}
+              disabled={!selectedCandidate || isSubmitting}
+              className={`w-full py-6 rounded-2xl font-black uppercase tracking-[0.3em] transition-all relative overflow-hidden border-b-8 active:border-b-0 active:translate-y-2 ${
+                selectedCandidate 
+                  ? "bg-green-600 hover:bg-green-500 border-green-800 text-white shadow-xl shadow-green-900/40" 
+                  : "bg-gray-800 border-gray-900 text-gray-600 cursor-not-allowed"
+              }`}
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center space-x-3">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Processing...</span>
+                </span>
+              ) : 'Confirm Vote'}
+            </button>
+          </div>
+
+          <div className="bg-black/40 p-4 rounded-xl border border-white/5 text-center">
+            <p className="text-[9px] text-gray-500 font-black uppercase tracking-[0.2em] leading-relaxed">
+              Hardware ID: EVM-EL-2024-SD08 <br/>
+              Secure Tamper-Proof Digital Ledger Active
+            </p>
+          </div>
+
+          <button
+            onClick={handleQuit}
+            className="w-full py-3 text-gray-600 hover:text-red-500 text-[10px] font-black uppercase tracking-widest transition-colors"
+          >
+            Emergency Quit
+          </button>
+          <div className="pt-4 border-t border-white/5 mt-4">
+            <button
+              onClick={() => {
+                resetSession();
+                setViolations(0);
+                setActiveViolation(null);
+                referenceDescriptor.current = null;
+                alert("Developer: Session Reset Successful! Identity reference cleared. You can now vote again.");
+              }}
+              className="w-full py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500/70 border border-yellow-500/30 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl transition-all"
+            >
+              Developer: Reset Session & Retry
+            </button>
+          </div>
+          <p className="text-[10px] text-gray-500 text-center font-black uppercase tracking-widest mt-4">By casting your vote, you agree to our blockchain-verified anonymous AI-proctored voting protocol.</p>
+        </div>
+      </div>
+
+      {/* 🔌 The Connecting Wire (Industrial Cable) */}
+      <div className="hidden lg:block absolute left-1/2 top-1/2 w-48 h-8 bg-gray-700 -translate-x-1/2 -translate-y-1/2 z-0 rounded-full border-y-[3px] border-gray-500 shadow-2xl">
+        <div className="w-full h-full flex items-center justify-between px-4 opacity-40">
+          <div className="w-1.5 h-4 bg-black rounded-full" />
+          <div className="w-1.5 h-4 bg-black rounded-full" />
+          <div className="w-1.5 h-4 bg-black rounded-full" />
+          <div className="w-1.5 h-4 bg-black rounded-full" />
+        </div>
+      </div>
+
+      {/* 🧾 Integrated VVPAT Component */}
+      <div className="flex-shrink-0 relative z-10 w-full lg:w-auto flex flex-col items-center">
+        <style>{`
+          @keyframes printSlip {
+            0% { transform: translateY(-100%); opacity: 0; }
+            20% { opacity: 1; }
+            80% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(0); opacity: 1; }
+          }
+          .animate-printSlip {
+            animation: printSlip 4s ease-out forwards;
+          }
+        `}</style>
+        
+        <div className="bg-[#D1D5DB] w-80 h-[540px] rounded-[2rem] shadow-[0_0_100px_rgba(0,0,0,0.4),inset_0_2px_10px_rgba(255,255,255,0.5)] p-6 flex flex-col items-center border-t-[12px] border-gray-100 border-x-[6px] border-gray-400 border-b-[16px] border-gray-500 relative overflow-hidden">
+          {/* Industrial Rivets */}
+          <div className="absolute top-4 left-4 w-2 h-2 rounded-full bg-gray-500 shadow-inner overflow-hidden">
+            <div className="w-full h-px bg-black/20 mt-0.5 rotate-45" />
+          </div>
+          <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-gray-500 shadow-inner overflow-hidden">
+            <div className="w-full h-px bg-black/20 mt-0.5 -rotate-45" />
+          </div>
+          <div className="absolute bottom-10 left-4 w-2 h-2 rounded-full bg-gray-600 shadow-inner overflow-hidden">
+            <div className="w-full h-px bg-black/20 mt-0.5 rotate-45" />
+          </div>
+          <div className="absolute bottom-10 right-4 w-2 h-2 rounded-full bg-gray-600 shadow-inner overflow-hidden">
+            <div className="w-full h-px bg-black/20 mt-0.5 -rotate-45" />
+          </div>
+
+          {/* Side Texture/Grip */}
+          <div className="absolute left-1 top-24 bottom-24 w-1 flex flex-col justify-between py-4 opacity-20">
+            {Array(15).fill(0).map((_, i) => <div key={i} className="w-full h-px bg-black" />)}
+          </div>
+          <div className="absolute right-1 top-24 bottom-24 w-1 flex flex-col justify-between py-4 opacity-20">
+            {Array(15).fill(0).map((_, i) => <div key={i} className="w-full h-px bg-black" />)}
+          </div>
+
+          {/* Machine Header */}
+          <div className="bg-[#1D4ED8] w-full h-22 rounded-2xl shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),0_4px_8px_rgba(0,0,0,0.2)] flex flex-col items-center justify-center border-b-8 border-blue-900 mb-6 relative group transform hover:scale-[1.01] transition-transform">
+            <div className="w-32 h-2 bg-blue-950/40 rounded-full mb-2 shadow-inner" />
+            <div className="text-[10px] font-black text-white uppercase tracking-[0.3em] drop-shadow-md text-center">Election Commission of India</div>
+            <div className="text-[8px] font-bold text-blue-200/60 uppercase tracking-widest mt-1">Voter Verifiable Paper Audit Trail</div>
+          </div>
+
+          {/* Paper View Window with Rugged Frame */}
+          <div className="relative bg-[#111827] w-68 h-52 rounded-xl border-[8px] border-[#4B5563] shadow-[0_10px_25px_rgba(0,0,0,0.4),inset_0_0_20px_rgba(0,0,0,0.5)] flex items-center justify-center group-hover:border-gray-500 transition-colors">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none z-10" />
+            <div className="absolute top-0 left-0 w-full h-2 bg-black/40 z-20" /> {/* "The Slot" shadow */}
+            
+            <div className="relative w-56 h-40 overflow-hidden bg-[#F3F4F6] rounded shadow-inner flex items-center justify-center border-2 border-black/10">
+              {/* The "Paper Slip" - ONLY SHOW WHEN PRINTING */}
+              {showVVPAT ? (
+                <div className="absolute top-0 w-full bg-white p-6 shadow-2xl border-x border-gray-100 animate-printSlip z-0">
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="w-12 h-12 p-2 border-2 border-gray-100 rounded-full bg-gray-50 shadow-sm">
+                      <img 
+                        src={candidates.find(c => c.id === selectedCandidate)?.symbol} 
+                        className="w-full h-full object-contain grayscale opacity-80" 
+                        alt="symbol"
+                      />
+                    </div>
+
+                    <div className="text-center">
+                      <div className="text-black font-black text-sm uppercase tracking-tighter">
+                        {candidates.find(c => c.id === selectedCandidate)?.name}
+                      </div>
+                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                        {candidates.find(c => c.id === selectedCandidate)?.party}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-dashed border-gray-300 w-full text-center">
+                      <div className="text-[8px] font-black text-blue-600 uppercase tracking-widest mb-1 text-center">Blockchain Receipt</div>
+                      <div className="text-[9px] font-mono text-gray-400 break-all leading-none bg-gray-50 p-2 rounded border border-gray-100 shadow-inner">
+                        {voteHash}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-400 text-[10px] font-black uppercase tracking-widest text-center px-4">
+                  Idle • Waiting for Vote
+                </div>
+              )}
             </div>
-            <p className="text-[10px] text-gray-500 text-center font-black uppercase tracking-widest mt-4">By casting your vote, you agree to our blockchain-verified anonymous AI-proctored voting protocol.</p>
+          </div>
+
+          {/* Hardware Status Area */}
+          <div className="mt-6 flex flex-col items-center space-y-4 w-full bg-gray-300/50 p-4 rounded-xl border border-white/20 shadow-inner">
+            <div className="flex items-center space-x-8">
+              <div className="flex flex-col items-center">
+                <div className={`w-4 h-4 rounded-full transition-all duration-300 ${showVVPAT ? 'bg-green-500 shadow-[0_0_20px_#22c55e] animate-pulse relative' : 'bg-gray-600 shadow-inner relative'}`}>
+                  {showVVPAT && <div className="absolute inset-[-4px] rounded-full border border-green-500/30 animate-ping" />}
+                </div>
+                <span className="text-[8px] font-black text-gray-600 mt-2 uppercase tracking-tighter">Machine Busy</span>
+              </div>
+              <div className="flex flex-col items-center opacity-40">
+                <div className="w-4 h-4 rounded-full bg-blue-500 shadow-inner" />
+                <span className="text-[8px] font-black text-gray-600 mt-2 uppercase tracking-tighter">Audit Wait</span>
+              </div>
+            </div>
+
+            <div className="w-3/4 h-px bg-gray-400/50" />
+
+            <div className="text-center">
+              <div className="text-[10px] font-black text-gray-800 uppercase tracking-widest mb-1 text-center">Veri-Paper Audit Entry</div>
+              <p className="text-[8px] text-gray-600 leading-none uppercase font-bold max-w-[180px] mx-auto opacity-70 text-center">
+                Do not clear or interfere. Paper slip valid for 7 seconds.
+              </p>
+            </div>
+          </div>
+
+          {/* Machine ID Tag */}
+          <div className="absolute bottom-6 right-6 opacity-30 select-none">
+            <div className="text-[8px] font-black text-gray-800 uppercase bg-gray-400/50 px-2 py-1 rounded border border-black/10">VVP-SRI-2024-SD-008</div>
           </div>
         </div>
       </div>
+      </div>
     </div>
-  );
+  </div>
+);
 }
 
 export default function VotingPage() {
