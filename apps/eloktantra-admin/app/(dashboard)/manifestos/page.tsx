@@ -36,13 +36,13 @@ export default function ManifestosAdmin() {
   };
 
   const fetchManifestos = async () => {
-    if (!selectedElection || !selectedConstituency) {
-      setManifestos([]);
-      return;
-    }
     setLoading(true);
     try {
-      const res = await backendAPI.get(`/api/admin/manifesto?electionId=${selectedElection}&constituencyId=${selectedConstituency}`);
+      const params: any = {};
+      if (selectedElection) params.electionId = selectedElection;
+      if (selectedConstituency) params.constituencyId = selectedConstituency;
+
+      const res = await backendAPI.get('/api/admin/manifesto', { params });
       const list = Array.isArray(res.data) ? res.data : (res.data.manifestos || res.data.data || []);
       setManifestos(list);
     } catch (err) {
@@ -54,6 +54,7 @@ export default function ManifestosAdmin() {
 
   useEffect(() => {
     fetchInitialData();
+    fetchManifestos(); // Fetch all initially
   }, []);
 
   useEffect(() => {
@@ -61,28 +62,21 @@ export default function ManifestosAdmin() {
   }, [selectedElection, selectedConstituency]);
 
   useEffect(() => {
-    if (!selectedElection) {
-        setConstituencies([]);
-        return;
-    };
     const fetchCons = async () => {
       try {
-        const res = await adminGetConstituencies(selectedElection);
+        const res = await adminGetConstituencies();
         // Robust data extraction (Render/Local/Standard compatibility)
         const list = Array.isArray(res.data) 
           ? res.data 
           : (res.data.constituencies || res.data.data || res.data.list || []);
           
         setConstituencies(list);
-        setSelectedConstituency('');
-        setCandidates([]);
-        setSelectedCandidate('');
       } catch (err) {
         toast.error('Failed to load regions');
       }
     };
     fetchCons();
-  }, [selectedElection]);
+  }, []);
 
   useEffect(() => {
     if (!selectedConstituency) {
@@ -113,8 +107,11 @@ export default function ManifestosAdmin() {
       await adminCreateManifesto({
         ...newManifesto,
         candidateId: selectedCandidate,
+        candidate_id: selectedCandidate, // Legacy support
         electionId: selectedElection,
-        constituencyId: selectedConstituency
+        election_id: selectedElection, // Legacy support
+        constituencyId: selectedConstituency,
+        constituency_id: selectedConstituency // Legacy support
       });
       toast.success('Digital Manifesto Deployed and Verified');
       setNewManifesto({ title: '', content: '', priorities: ['', ''] });
@@ -269,15 +266,19 @@ export default function ManifestosAdmin() {
                              
                              <div className="flex items-center gap-4 mb-6">
                                 <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 shadow-inner">
-                                    {m.candidateId?.photo_url ? (
-                                        <img src={m.candidateId.photo_url} alt={m.candidateId.name} className="w-full h-full object-cover" />
+                                    {((m as any).candidate?.photo_url || m.candidateId?.photo_url) ? (
+                                        <img src={(m as any).candidate?.photo_url || m.candidateId?.photo_url} alt="Candidate" className="w-full h-full object-cover" />
                                     ) : (
                                         <User className="w-8 h-8 text-gray-300" />
                                     )}
                                 </div>
                                 <div>
-                                    <h4 className="font-black text-gray-900 text-lg leading-tight truncate max-w-[180px]">{m.candidateId?.name || 'Unknown Candidate'}</h4>
-                                    <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest mt-1">{m.constituencyId?.name || 'Global'}</p>
+                                    <h4 className="font-black text-gray-900 text-lg leading-tight truncate max-w-[180px]">
+                                        {(m as any).candidate?.name || m.candidateId?.name || (m as any).candidate_name || 'Unknown Candidate'}
+                                    </h4>
+                                    <p className="text-emerald-500 text-[10px] font-black uppercase tracking-widest mt-1">
+                                        {(m as any).constituency?.name || m.constituencyId?.name || (m as any).constituency_name || 'Global'}
+                                    </p>
                                 </div>
                              </div>
 
@@ -285,9 +286,14 @@ export default function ManifestosAdmin() {
                              <p className="text-gray-500 text-sm font-medium line-clamp-4 leading-relaxed mb-6 italic">"{m.content}"</p>
                              
                              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
-                                <div className="flex items-center gap-2">
-                                    <ShieldCheck className="w-4 h-4 text-emerald-500/50" />
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Verified Blueprint</span>
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="w-4 h-4 text-emerald-500/50" />
+                                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Verified Blueprint</span>
+                                    </div>
+                                    <span className="text-[9px] font-bold text-gray-300 uppercase ml-6">
+                                        Added: {m.created_at ? new Date(m.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Archive'}
+                                    </span>
                                 </div>
                                 <ArrowRight className="w-5 h-5 text-gray-200 group-hover:text-emerald-500 transition-colors" />
                              </div>

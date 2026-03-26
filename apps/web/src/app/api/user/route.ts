@@ -1,41 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { User } from '@/models/ElectionModels';
+import axios from 'axios';
 import { authenticate } from '@/lib/auth';
-import { connectDB } from '@/lib/mongodb';
 
-// CITIZEN PROFILE ENGINE: GET /api/user 🕵️‍♂️🛡️🔐
+export const dynamic = 'force-dynamic';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-elokantra.onrender.com';
+
+/**
+ * GET /api/user — Fetch citizen profile from backend source of truth.
+ */
 export async function GET(request: NextRequest) {
   try {
     const payload = await authenticate(request);
-
     if (!payload) {
       return NextResponse.json({ error: 'Unauthorized Session' }, { status: 401 });
     }
 
-    const conn = await connectDB();
-    if (!conn) return NextResponse.json({ error: 'Database Offline' }, { status: 503 });
-
-    // Fetch the authenticated user from the local eLoktantra identity vault
-    const user = await User.findById(payload.userId);
-
-    if (!user) {
-      return NextResponse.json({ error: 'Identified user was removed from the session vault.' }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        phone: user.phone,
-        constituency: user.constituencyId,
-        isVerified: user.isVerified,
-        hasVoted: user.hasVoted
+    const res = await axios.get(`${BACKEND_URL}/auth/me`, {
+      headers: {
+        Authorization: request.headers.get('Authorization')
       }
     });
 
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    console.error('API Profile Error:', err.message);
-    return NextResponse.json({ error: `Profile Retrieval Failure: ${err.message}` }, { status: 500 });
+    console.error('User profile proxy error:', err.message);
+    return NextResponse.json({ success: false, error: err.response?.data?.error || 'Profile retrieval failed' }, { status: 502 });
   }
 }

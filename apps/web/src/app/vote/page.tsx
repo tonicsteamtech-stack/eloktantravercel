@@ -10,6 +10,7 @@ import {
   ShieldAlert, UserCheck
 } from 'lucide-react';
 import { useDigiLockerStore } from '@/lib/store/digilocker-store';
+import { apiClient } from '@/lib/api/client';
 
 export default function SecureVoteGateway() {
   const router = useRouter();
@@ -60,14 +61,10 @@ export default function SecureVoteGateway() {
     // Fetch real constituencies from ledger
     const fetchRegions = async () => {
       try {
-        const baseUrl = 'https://backend-elokantra.onrender.com';
+        // Use the centralized apiClient (retries on 502/Timeout)
+        let res = await apiClient.get('/constituencies');
         
-        // NestJS controllers often use singular 'constituency' or plural 'constituencies'
-        // We handle both to ensure the registry isn't offline.
-        let res = await fetch(`${baseUrl}/api/constituency`);
-        if (!res.ok) res = await fetch(`${baseUrl}/api/constituencies`);
-        
-        const data = await res.json();
+        const data = res.data;
         const list = Array.isArray(data) ? data : (data.data || data.constituencies || []);
         
         console.log("Gateway Regions Loaded:", list);
@@ -109,19 +106,14 @@ export default function SecureVoteGateway() {
     }
     setLoading(true);
     try {
-        const baseUrl = 'https://backend-elokantra.onrender.com';
-        const resp = await fetch(`${baseUrl}/api/digilocker/verify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                identifier: voterPhone, 
-                voterId, 
-                voterName, 
-                constituency, 
-                deviceId 
-            })
+        const res = await apiClient.post('/digilocker/verify', { 
+            identifier: voterPhone, 
+            voterId, 
+            voterName, 
+            constituency, 
+            deviceId 
         });
-        const data = await resp.json();
+        const data = res.data;
         
         if (!data.success) {
             setError(data.error || "Registry access denied.");
@@ -205,19 +197,14 @@ export default function SecureVoteGateway() {
       setLoading(true);
       setError('');
       try {
-          const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://backend-elokantra.onrender.com";
           const voterData = JSON.parse(localStorage.getItem('voter_data') || '{}');
-          const res = await fetch(`${baseUrl}/voter/verify-face`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  voterIdHash: voterData.aadhaarHash || voterData.voterId,
-                  image: 'BIOMETRIC_CAPTURE_STREAM',
-                  liveEmbedding: Array.from(liveDesc),
-                  voterCardEmbedding: Array.from(liveDesc) 
-              })
+          const res = await apiClient.post('/voter/verify-face', {
+              voterIdHash: voterData.aadhaarHash || voterData.voterId,
+              image: 'BIOMETRIC_CAPTURE_STREAM',
+              liveEmbedding: Array.from(liveDesc),
+              voterCardEmbedding: Array.from(liveDesc) 
           });
-          const data = await res.json();
+          const data = res.data;
           if (data.success) {
               setChallenge('DONE');
               setStep(4);
@@ -237,12 +224,10 @@ export default function SecureVoteGateway() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/verify/risk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: (digitUser as any)?.id || 'MANUAL_UID', deviceId })
+      const res = await apiClient.post('/verify/risk', { 
+        userId: (digitUser as any)?.id || 'MANUAL_UID', deviceId 
       });
-      const data = await response.json();
+      const data = res.data;
       if (data.success) setStep(4);
       else setError(data.error || "Fraud Signal Detected.");
     } catch (err) {
@@ -256,12 +241,10 @@ export default function SecureVoteGateway() {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/verify/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: (digitUser as any)?.id || voterId })
+      const res = await apiClient.post('/verify/token', { 
+        userId: (digitUser as any)?.id || voterId 
       });
-      const data = await response.json();
+      const data = res.data;
       if (data.success) {
         // Navigation includes constituency for filtering candidates
         router.push(`/vote/eEVM?id=${voterId}&constituency=${constituency}&token=${data.token}`);

@@ -12,17 +12,17 @@ import { Party, Constituency, Election } from '@/types';
 import { contentAPI as backendAPI, adminGetParties, adminGetConstituencies, adminCreateCandidate, adminGetElections } from '@/lib/api';
 
 const candidateSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().trim().min(1, 'Full name is required'),
   party: z.string().min(1, 'Select a party'),
-  partyId: z.string().min(1),
+  partyId: z.string().min(1, 'Select a party'),
   constituency: z.string().min(1, 'Select a constituency'),
-  constituencyId: z.string().min(1),
-  photo_url: z.string().url().optional().or(z.literal('')),
-  age: z.number().min(25, 'Min age for candidates is 25'),
+  constituencyId: z.string().min(1, 'Select a constituency'),
+  photo_url: z.string().trim().url('Invalid URL format').optional().or(z.literal('')),
+  age: z.number().min(25, 'Min age for candidates is 25').max(100, 'Invalid age'),
   gender: z.enum(['Male', 'Female', 'Other']),
   education: z.string().optional(),
   net_worth: z.string().optional(),
-  criminal_cases: z.number().default(0),
+  criminal_cases: z.number().min(0, 'Cases cannot be negative').default(0),
   criminal_details: z.string().optional(),
   manifesto_summary: z.string().optional(),
   social_links: z.object({
@@ -30,7 +30,7 @@ const candidateSchema = z.object({
     facebook: z.string().optional(),
     website: z.string().optional()
   }).optional(),
-  electionId: z.string().min(1, 'Election link required'),
+  electionId: z.string().min(1, 'Active election must be selected'),
 });
 
 type CandidateFormValues = z.infer<typeof candidateSchema>;
@@ -80,11 +80,22 @@ export default function CandidateForm({ initialData, id }: { initialData?: any, 
 
   const onSubmit = async (values: CandidateFormValues) => {
     try {
-      await adminCreateCandidate({
-         ...values,
-         id: id // Pass current ID if editing
-      });
-      toast.success(id ? 'Candidate updated successfully' : 'Candidate nominated successfully');
+      // Redundant key mapping for backend resilience
+      const submissionData = {
+        ...values,
+        assets: parseFloat(values.net_worth || '0'), // For legacy/local schema
+        net_worth: values.net_worth,                // For Render schema
+        criminalCases: values.criminal_cases,       // For legacy/local schema
+        criminal_cases: values.criminal_cases,      // For Render schema
+      };
+
+      if (id) {
+        await adminUpdateCandidate(id, submissionData);
+        toast.success("Candidate updated successfully!");
+      } else {
+        await adminCreateCandidate(submissionData);
+        toast.success("Candidate nominated successfully!");
+      }
       router.push('/candidates');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to save candidate');
@@ -101,17 +112,28 @@ export default function CandidateForm({ initialData, id }: { initialData?: any, 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden animate-in zoom-in-95 duration-300">
       <div className="flex border-b border-gray-100 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center px-8 py-5 text-sm font-bold border-b-2 transition-all whitespace-nowrap
-              ${activeTab === tab.id ? 'border-orange-500 text-orange-500 bg-amber-50/30' : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
-          >
-            <tab.icon className={`w-4 h-4 mr-2 ${activeTab === tab.id ? 'text-orange-500' : 'text-gray-300'}`} />
-            {tab.label}
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          // Check if any fields in this tab have errors
+          const hasError = 
+            (tab.id === 'basic' && (errors.name || errors.partyId || errors.constituencyId || errors.age || errors.gender)) ||
+            (tab.id === 'election' && (errors.electionId));
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center px-8 py-5 text-sm font-bold border-b-2 transition-all whitespace-nowrap relative
+                ${activeTab === tab.id ? 'border-orange-500 text-orange-500 bg-amber-50/30' : 'border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}
+            >
+              <tab.icon className={`w-4 h-4 mr-2 ${activeTab === tab.id ? 'text-orange-500' : 'text-gray-300'}`} />
+              {tab.label}
+              {hasError && (
+                <span className="absolute top-3 right-4 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <form 
@@ -124,27 +146,31 @@ export default function CandidateForm({ initialData, id }: { initialData?: any, 
         {activeTab === 'basic' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Full Name <span className="text-red-500">*</span></label>
               <input 
                 {...register('name')}
-                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium"
+                className={`w-full px-5 py-3.5 bg-gray-50 border ${errors.name ? 'border-red-500/50 bg-red-50/10' : 'border-gray-100'} rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium`}
                 placeholder="e.g. Narendra Modi"
               />
-              {errors.name && <p className="text-red-500 text-[10px] font-bold mt-1 px-1 uppercase">{errors.name.message}</p>}
+              {errors.name && <p className="text-red-500 text-[10px] font-bold mt-1 px-1 uppercase tracking-tighter">{errors.name.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Political Party</label>
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Political Party <span className="text-red-500">*</span></label>
               <select 
                 value={watch('partyId')}
                 onChange={(e) => {
-                  const party = parties.find(p => (p.id || (p as any)._id) === e.target.value);
+                  const partyId = e.target.value;
+                  const party = parties.find(p => (p.id || (p as any)._id) === partyId);
+                  
+                  setValue('partyId', partyId, { shouldValidate: true });
                   if (party) {
-                    setValue('partyId', (party.id || (party as any)._id) as string, { shouldValidate: true });
                     setValue('party', party.name, { shouldValidate: true });
+                  } else {
+                    setValue('party', '', { shouldValidate: true });
                   }
                 }}
-                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium appearance-none cursor-pointer"
+                className={`w-full px-5 py-3.5 bg-gray-50 border ${errors.partyId ? 'border-red-500/50 bg-red-50/10' : 'border-gray-100'} rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium appearance-none cursor-pointer`}
               >
                 <option value="">Select Party</option>
                 {parties.map(p => (
@@ -157,17 +183,21 @@ export default function CandidateForm({ initialData, id }: { initialData?: any, 
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Constituency</label>
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Constituency <span className="text-red-500">*</span></label>
               <select 
                 value={watch('constituencyId')}
                 onChange={(e) => {
-                  const consti = constituencies.find(c => (c.id || (c as any)._id) === e.target.value);
+                  const constiId = e.target.value;
+                  const consti = constituencies.find(c => (c.id || (c as any)._id) === constiId);
+                  
+                  setValue('constituencyId', constiId, { shouldValidate: true });
                   if (consti) {
-                    setValue('constituencyId', (consti.id || (consti as any)._id) as string, { shouldValidate: true });
                     setValue('constituency', consti.name, { shouldValidate: true });
+                  } else {
+                    setValue('constituency', '', { shouldValidate: true });
                   }
                 }}
-                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium appearance-none cursor-pointer"
+                className={`w-full px-5 py-3.5 bg-gray-50 border ${errors.constituencyId ? 'border-red-500/50 bg-red-50/10' : 'border-gray-100'} rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium appearance-none cursor-pointer`}
               >
                 <option value="">Select Constituency</option>
                 {constituencies.map(c => (
@@ -247,15 +277,15 @@ export default function CandidateForm({ initialData, id }: { initialData?: any, 
         {activeTab === 'election' && (
           <div className="space-y-8">
             <div className="space-y-2">
-              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Active Election Link</label>
+              <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Active Election Link <span className="text-red-500">*</span></label>
               <select 
                 {...register('electionId')}
-                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium appearance-none cursor-pointer"
+                className={`w-full px-5 py-3.5 bg-gray-50 border ${errors.electionId ? 'border-red-500/50 bg-red-50/10' : 'border-gray-100'} rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium appearance-none cursor-pointer`}
               >
                 <option value="">Select active election...</option>
-                {activeElections.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+                {activeElections.map(e => <option key={e.id || (e as any)._id} value={e.id || (e as any)._id}>{e.title || e.name || 'Untitled'}</option>)}
               </select>
-              {errors.electionId && <p className="text-red-500 text-[10px] font-bold mt-1 px-1 uppercase">{errors.electionId.message}</p>}
+              {errors.electionId && <p className="text-red-500 text-[10px] font-bold mt-1 px-1 uppercase tracking-tighter">{errors.electionId.message}</p>}
               <p className="text-[10px] text-gray-400 font-bold px-1 italic">This candidate will be automatically added to the ballot for the selected election.</p>
             </div>
 
@@ -277,9 +307,10 @@ export default function CandidateForm({ initialData, id }: { initialData?: any, 
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Profile Photo URL</label>
               <input 
                 {...register('photo_url')}
-                className="w-full px-5 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium"
+                className={`w-full px-5 py-3.5 bg-gray-50 border ${errors.photo_url ? 'border-red-500/50 bg-red-50/10' : 'border-gray-100'} rounded-2xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none transition-all font-medium`}
                 placeholder="https://example.com/photo.jpg"
               />
+              {errors.photo_url && <p className="text-red-500 text-[10px] font-bold mt-1 px-1 uppercase tracking-tighter">{errors.photo_url.message}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Twitter (X) Profile</label>

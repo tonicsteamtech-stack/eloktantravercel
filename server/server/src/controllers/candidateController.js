@@ -20,7 +20,8 @@ const getAllCandidates = async (req, res) => {
         const candidates = await Candidate.find(query)
             .limit(parseInt(limit))
             .skip((parseInt(page) - 1) * parseInt(limit))
-            .sort({ name: 1 });
+            .sort({ name: 1 })
+            .maxTimeMS(15000); // 15s DB timeout (Relaxed for Render)
 
         const total = await Candidate.countDocuments(query);
 

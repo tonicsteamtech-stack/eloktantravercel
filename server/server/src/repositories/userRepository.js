@@ -51,8 +51,32 @@ const findAll = async () => {
   return store.users;
 };
 
+const findById = async (id) => {
+  if (mongoose.connection.readyState === 1) {
+    return User.findById(id);
+  }
+  const store = getStore();
+  return store.users.find(u => u._id === id || u.id === id);
+};
+
+const findByIdAndUpdate = async (id, update, options = { new: true }) => {
+  if (mongoose.connection.readyState === 1) {
+    return User.findByIdAndUpdate(id, update, options);
+  }
+  const store = getStore();
+  const index = store.users.findIndex(u => u._id === id || u.id === id);
+  if (index !== -1) {
+    store.users[index] = { ...store.users[index], ...update };
+    saveStore(store);
+    return store.users[index];
+  }
+  return null;
+};
+
 module.exports = {
   findOne,
   create,
-  findAll
+  findAll,
+  findById,
+  findByIdAndUpdate
 };

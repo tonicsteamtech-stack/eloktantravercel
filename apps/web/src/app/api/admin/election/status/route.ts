@@ -1,36 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
-import { requireAdmin } from '@/lib/adminAuth';
-import { Election } from '@/models/CoreModels';
+import axios from 'axios';
+
+export const dynamic = 'force-dynamic';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-elokantra.onrender.com';
 
 /**
  * POST /api/admin/election/status
- * Body: { id, isActive }
+ * Proxy to Render Backend for toggling election lifecycle.
  */
 export async function POST(request: NextRequest) {
-  const deny = requireAdmin(request);
-  if (deny) return deny;
-
   try {
-    await connectDB();
     const { id, isActive } = await request.json();
+    if (!id) return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ success: false, error: 'Election ID is required' }, { status: 400 });
-    }
+    const res = await axios.patch(`${BACKEND_URL}/elections/${id}/status`, { status: isActive ? 'Active' : 'Upcoming' }, {
+      headers: { 'x-admin-key': 'eLoktantra-AdminPortal-SecretKey-2024' }
+    });
 
-    const election = await Election.findByIdAndUpdate(
-      id,
-      { $set: { isActive } },
-      { new: true }
-    );
-
-    if (!election) {
-      return NextResponse.json({ success: false, error: 'Election not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, election });
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }

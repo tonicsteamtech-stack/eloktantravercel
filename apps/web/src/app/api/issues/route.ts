@@ -1,52 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
-import { Issue } from '@/models/CoreModels';
-import { authenticate } from '@/lib/auth';
+import axios from 'axios';
+import { getBackendUrl, ADMIN_API_KEY } from '@/lib/api/config';
 
-// GET /api/issues
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+const ACTUAL_BACKEND = getBackendUrl();
+
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
     const { searchParams } = new URL(request.url);
-    const constituency = searchParams.get('constituency');
-    const status = searchParams.get('status');
-    const type = searchParams.get('type');
+    const electionId = searchParams.get('electionId');
+    const constituencyId = searchParams.get('constituencyId');
 
-    const query: any = {};
-    if (constituency) query.constituency = constituency;
-    if (status) query.status = status;
-    if (type) query.issueType = type;
+    const res = await axios.get(`${ACTUAL_BACKEND}/api/issues`, {
+      params: { electionId, constituencyId },
+      timeout: 45000
+    });
 
-    const issues = await Issue.find(query)
-      .sort({ createdAt: -1 })
-      .lean();
+    // Senior Fix: Standardize response shape
+    const result = res.data;
+    const list = result.issues || result.data || result.list || [];
 
-    const normalized = issues.map(i => ({ ...i, id: i._id.toString() }));
-    return NextResponse.json({ success: true, count: normalized.length, issues: normalized });
+    return NextResponse.json({ 
+      success: true, 
+      count: list.length, 
+      issues: list 
+    });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error('Issues fetch failed:', err.message);
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }
 
-// POST /api/issues — citizen reports a new issue
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-    const payload = await authenticate(request);
     const body = await request.json();
-    const { title, description, location, constituency, issueType } = body;
-
-    if (!title || !description || !location || !constituency || !issueType) {
-      return NextResponse.json({ success: false, error: 'All fields are required' }, { status: 400 });
-    }
-
-    const issue = await Issue.create({
-      title, description, location, constituency, issueType,
-      reportedBy: payload?.userId || undefined,
+    const res = await axios.post(`${ACTUAL_BACKEND}/api/issues`, body, {
+       headers: { 'x-admin-key': ADMIN_API_KEY },
+       timeout: 45000
     });
-
-    return NextResponse.json({ success: true, issue }, { status: 201 });
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error('Issue creation failed:', err.message);
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }

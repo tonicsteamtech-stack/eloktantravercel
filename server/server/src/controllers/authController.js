@@ -108,9 +108,83 @@ const login = async (req, res) => {
   res.status(401).json({ success: false, error: 'Invalid credentials' });
 };
 
+const digilockerVerify = async (req, res) => {
+  try {
+    const { identifier, voterId, voterName, deviceId } = req.body;
+    const ElectoralRoll = require('../models/ElectoralRoll');
+    const crypto = require('crypto');
+
+    // Simple Find logic matching the proxy expectation
+    const voter = await ElectoralRoll.findOne({ 
+      $or: [{ phone: identifier }, { voterId: voterId }, { name: voterName }]
+    });
+
+    if (!voter) return res.status(403).json({ success: false, error: "Not registered in Electoral Roll" });
+
+    const sessionId = crypto.randomUUID();
+    const faceHash = crypto.createHash('sha256').update(voter.faceEmbedding).digest('hex');
+    const tokenHash = crypto.createHash('sha256').update([voter.voterId, deviceId || 'UNKNOWN', sessionId].join('|')).digest('hex');
+
+    const user = await userRepository.findByIdAndUpdate(voter._id, {
+      name: voter.name,
+      phone: voter.phone,
+      aadhaarHash: voter.aadhaarHash,
+      constituencyId: voter.constituencyId,
+      deviceId,
+      sessionId,
+      faceHash,
+      tokenHash,
+      isVerified: false
+    }, { upsert: true, new: true });
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        name: voter.name,
+        mobileNumber: voter.phone,
+        constituencyId: voter.constituencyId,
+        faceEmbedding: voter.faceEmbedding,
+        deviceId,
+        sessionId
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Identity verification failed' });
+  }
+};
+
+const getMe = async (req, res) => {
+  try {
+    const user = await userRepository.findById(req.user.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ error: 'Profile retrieval failed' });
+  }
+};
+
+const verifyTokenBinding = async (req, res) => {
+   // Mirror verify/token/route.ts logic
+   try {
+     const { userId, deviceId } = req.body;
+     const user = await userRepository.findById(userId);
+     if (!user) return res.status(404).json({ error: 'User not found' });
+     
+     // Mark as verified for simplicity in demo
+     await userRepository.findByIdAndUpdate(userId, { isVerified: true });
+     res.json({ success: true, ready: true });
+   } catch (err) {
+     res.status(500).json({ error: 'Token binding failed' });
+   }
+};
+
 module.exports = {
   digilockerCallback,
+  digilockerVerify,
   faceVerify,
   getUsers,
-  login
+  getMe,
+  login,
+  verifyTokenBinding
 };

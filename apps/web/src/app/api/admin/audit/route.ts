@@ -1,26 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
+import axios from 'axios';
+
 export const dynamic = 'force-dynamic';
-import { connectDB } from '@/lib/mongodb';
-import { requireAdmin } from '@/lib/adminAuth';
-import { AuditLog } from '@/models/CoreModels';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-elokantra.onrender.com';
 
 /**
  * GET /api/admin/audit
- * Returns system audit logs for administrative inspection.
  */
 export async function GET(request: NextRequest) {
-  const deny = requireAdmin(request);
-  if (deny) return deny;
-
   try {
-    await connectDB();
-    const logs = await AuditLog.find({})
-      .sort({ timestamp: -1 })
-      .limit(200)
-      .lean();
-      
-    return NextResponse.json({ success: true, count: logs.length, data: logs });
+    const res = await axios.get(`${BACKEND_URL}/api/admin/audit`, {
+      headers: { 'x-admin-key': 'eLoktantra-AdminPortal-SecretKey-2024' }
+    });
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
+  }
+}
+
+/**
+ * POST /api/admin/audit
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const res = await axios.post(`${BACKEND_URL}/api/admin/audit`, body, {
+      headers: { 'x-admin-key': 'eLoktantra-AdminPortal-SecretKey-2024' }
+    });
+    return NextResponse.json(res.data);
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }

@@ -6,6 +6,7 @@ import {
   ArrowRight, Search, Info, ShieldAlert,
   MessageSquare, Share2, ThumbsUp
 } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 export default function IssuesHierarchyPage() {
   const [elections, setElections] = useState<any[]>([]);
@@ -23,11 +24,10 @@ export default function IssuesHierarchyPage() {
   useEffect(() => {
     const fetchElections = async () => {
       try {
-        const res = await fetch('/api/elections?active=true');
-        const data = await res.json();
-        setElections(data.elections || []);
-        if (data.elections?.length > 0) {
-          setSelectedElection(data.elections[0].id);
+        const res = await apiClient.get('/elections', { params: { active: true } });
+        setElections(res.data.elections || []);
+        if (res.data.elections?.length > 0) {
+          setSelectedElection(res.data.elections[0].id);
         }
       } catch (err) {
         console.error('Fetch Elections Err:', err);
@@ -46,9 +46,10 @@ export default function IssuesHierarchyPage() {
       setConstituencies([]);
       setSelectedConstituency('');
       try {
-        const res = await fetch(`/api/constituencies?electionId=${selectedElection}`);
-        const data = await res.json();
-        setConstituencies(data.constituencies || []);
+        const res = await apiClient.get(`/constituencies`, {
+          params: { electionId: selectedElection }
+        });
+        setConstituencies(res.data.constituencies || []);
       } catch (err) {
         console.error('Fetch Constituencies Err:', err);
       } finally {
@@ -68,9 +69,10 @@ export default function IssuesHierarchyPage() {
       setIsLoadingIssues(true);
       try {
         // Updated API call to match hierarchical requirement
-        const res = await fetch(`/api/issues?electionId=${selectedElection}&constituencyId=${selectedConstituency}`);
-        const data = await res.json();
-        setIssues(data.issues || []);
+        const res = await apiClient.get(`/issues`, {
+          params: { electionId: selectedElection, constituencyId: selectedConstituency }
+        });
+        setIssues(res.data.issues || []);
       } catch (err) {
         console.error('Fetch Issues Err:', err);
       } finally {
@@ -92,24 +94,21 @@ export default function IssuesHierarchyPage() {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/issues', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newIssue,
-          electionId: selectedElection,
-          constituencyId: selectedConstituency,
-          location: 'Voter Context', // Required by API
-          issueType: 'Citizen Report'
-        })
+      const res = await apiClient.post('/issues', {
+        ...newIssue,
+        electionId: selectedElection,
+        constituencyId: selectedConstituency,
+        location: 'Voter Context', // Required by API
+        issueType: 'Citizen Report'
       });
-      if (res.ok) {
+      if (res.data.success || res.status === 200) {
         setNewIssue({ title: '', description: '' });
         setIsReporting(false);
         // Refresh issues
-        const refresh = await fetch(`/api/issues?electionId=${selectedElection}&constituencyId=${selectedConstituency}`);
-        const data = await refresh.json();
-        setIssues(data.issues || []);
+        const refresh = await apiClient.get(`/issues`, {
+          params: { electionId: selectedElection, constituencyId: selectedConstituency }
+        });
+        setIssues(refresh.data.issues || []);
       }
     } catch (err) {
       console.error('Report Err:', err);

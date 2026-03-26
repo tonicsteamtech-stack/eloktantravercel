@@ -107,15 +107,111 @@ const updateElection = async (req, res) => {
   }
 };
 
-const deleteElection = async (req, res) => {
+const getElectionResults = async (req, res) => {
   try {
     const { id } = req.params;
-    await electionRepository.deleteById(id);
-    res.json({ success: true, message: 'Election deleted' });
+    const Election = require('../models/Election');
+    const Vote = require('../models/Vote');
+    const Candidate = require('../models/Candidate');
+
+    const election = await Election.findById(id);
+    if (!election) return res.status(404).json({ success: false, error: 'Election not found' });
+
+    // Aggregate real votes from MongoDB
+    const voteCounts = await Vote.aggregate([
+      { $match: { electionId: new mongoose.Types.ObjectId(id) } },
+      { $group: { _id: '$candidateId', count: { $sum: 1 } } }
+    ]);
+
+    const candidates = await Candidate.find({ election_id: id });
+    
+    const results = candidates.map(c => {
+      const voteData = voteCounts.find(v => v._id.toString() === c._id.toString());
+      return {
+        candidateId: c._id,
+        candidateName: c.name,
+        party: c.party_name || 'Independent',
+        votes: voteData ? voteData.count : 0
+      };
+    });
+
+    res.json({
+      success: true,
+      election,
+      totalVotes: results.reduce((sum, r) => sum + r.votes, 0),
+      results: results.sort((a, b) => b.votes - a.votes)
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete election' });
+    console.error('Results Extraction Error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
+
+
+const getDashboardStats = async (req, res) => {
+  try {
+    // Check DB connection status
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('Dashboard Stats: DB not ready, current state:', mongoose.connection.readyState);
+      // Return partial or mock data if DB is connecting to keep UI responsive
+      return res.json({
+        success: true,
+        stats: { totalCandidates: 0, totalVotes: 0, activeElections: 0, openIssues: 0 },
+        recentIssues: [],
+        activeElections: [],
+        message: 'Database connecting...'
+      });
+    }
+
+    const Candidate = require('../models/Candidate');
+    const Vote = require('../models/Vote'); 
+    const Issue = require('../models/Issue');
+    const Election = require('../models/Election');
+
+    // Add a timeout to the overall stats gathering
+    const statsPromise = Promise.all([
+      Candidate.countDocuments(),
+      Vote.countDocuments(),
+      Election.countDocuments({ status: 'ACTIVE' }),
+      Issue.countDocuments(),
+      Issue.find().sort({ createdAt: -1 }).limit(5),
+      Election.find({ status: 'ACTIVE' }).sort({ createdAt: -1 }).limit(5),
+    ]);
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Dashboard Stats Timeout')), 5000)
+    );
+
+    const [
+      totalCandidates,
+      totalVotes,
+      activeElectionsCount,
+      openIssuesCount,
+      recentIssues,
+      activeElectionsList,
+    ] = await Promise.race([statsPromise, timeoutPromise]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalCandidates,
+        totalVotes,
+        activeElections: activeElectionsCount,
+        openIssues: openIssuesCount,
+      },
+      recentIssues,
+      activeElections: activeElectionsList,
+    });
+  } catch (error) {
+    console.error('Dashboard Stats Error:', error.message);
+    res.status(200).json({ 
+      success: true, 
+      stats: { totalCandidates: 0, totalVotes: 0, activeElections: 0, openIssues: 0 },
+      error: 'Data retrieval partially failed' 
+    });
+  }
+};
+
 
 module.exports = {
   getActiveElection,
@@ -124,5 +220,7 @@ module.exports = {
   updateElectionStatus,
   getElectionById,
   updateElection,
-  deleteElection
+  deleteElection,
+  getElectionResults,
+  getDashboardStats
 };

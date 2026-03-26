@@ -135,11 +135,15 @@ export default function ManifestosPage() {
                     
                     {/* Candidate Info */}
                     <div className="flex items-center gap-6 mb-10">
-                      <div className="w-20 h-20 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                        <User className="w-10 h-10 text-orange-500" />
+                      <div className="w-20 h-20 rounded-2xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 overflow-hidden shadow-inner">
+                        {m.candidatePhoto ? (
+                          <img src={m.candidatePhoto} alt={m.candidateName} className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-10 h-10 text-orange-500" />
+                        )}
                       </div>
                       <div>
-                        <h3 className="text-3xl font-black tracking-tight">{m.candidateName}</h3>
+                        <h3 className="text-3xl font-black tracking-tight line-clamp-1">{m.candidateName}</h3>
                         <p className="text-orange-400 font-bold uppercase tracking-widest text-sm">{m.partyName}</p>
                       </div>
                     </div>

@@ -1,59 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
+import axios from 'axios';
 import { requireAdmin } from '@/lib/adminAuth';
-import { Candidate } from '@/models/CoreModels';
 
-/**
- * POST /api/admin/candidate — Create or update a candidate in the electoral hierarchy.
- */
+export const dynamic = 'force-dynamic';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-elokantra.onrender.com';
+
+export async function GET(request: NextRequest) {
+  const deny = requireAdmin(request);
+  if (deny) return deny;
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const res = await axios.get(`${BACKEND_URL}/api/admin/candidate`, {
+      params: Object.fromEntries(searchParams),
+      headers: { 'x-admin-key': process.env.ADMIN_API_KEY || 'eLoktantra-AdminPortal-SecretKey-2024' },
+      timeout: 90000
+    });
+    return NextResponse.json(res.data);
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   const deny = requireAdmin(request);
   if (deny) return deny;
 
   try {
-    await connectDB();
     const body = await request.json();
-    const { id, name, partyId, electionId, constituencyId, photo_url, assets, criminalCases, education, biography } = body;
-
-    if (!name || !partyId || !electionId || !constituencyId) {
-       return NextResponse.json({ success: false, error: 'name, partyId, electionId, constituencyId are required' }, { status: 400 });
-    }
-
-    let candidate;
-    if (id) {
-       candidate = await Candidate.findByIdAndUpdate(id, {
-          name, partyId, electionId, constituencyId, photo_url, assets, criminalCases, education, biography
-       }, { new: true });
-    } else {
-       candidate = await Candidate.create({
-          name, partyId, electionId, constituencyId, photo_url, assets, criminalCases, education, biography
-       });
-    }
-
-    return NextResponse.json({ success: true, candidate }, { status: 201 });
+    const res = await axios.post(`${BACKEND_URL}/api/admin/candidate`, body, {
+      headers: { 'x-admin-key': process.env.ADMIN_API_KEY || 'eLoktantra-AdminPortal-SecretKey-2024' },
+      timeout: 90000
+    });
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    console.error('API_ADMIN_CANDIDATE_POST_ERROR:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }
 
-/**
- * DELETE /api/admin/candidate?id=
- */
 export async function DELETE(request: NextRequest) {
   const deny = requireAdmin(request);
   if (deny) return deny;
 
   try {
-    await connectDB();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-
-    if (!id) return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
-
-    await Candidate.findByIdAndDelete(id);
-    return NextResponse.json({ success: true, message: 'Candidate removed from ledger' });
+    const res = await axios.delete(`${BACKEND_URL}/api/admin/candidate/${id}`, {
+      headers: { 'x-admin-key': process.env.ADMIN_API_KEY || 'eLoktantra-AdminPortal-SecretKey-2024' },
+      timeout: 90000
+    });
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }

@@ -13,11 +13,13 @@ export default function IssuesAdmin() {
   const [loading, setLoading] = useState(false);
   const [selectedElection, setSelectedElection] = useState('');
   const [selectedConstituency, setSelectedConstituency] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchInitialData = async () => {
     try {
         const res = await adminGetElections();
-        setElections(Array.isArray(res.data) ? res.data : (res.data.elections || res.data.data || []));
+        const list = Array.isArray(res.data) ? res.data : (res.data.elections || res.data.data || []);
+        setElections(list);
     } catch (err) {
         toast.error('Source of truth offline');
     }
@@ -45,26 +47,21 @@ export default function IssuesAdmin() {
   }, []);
 
   useEffect(() => {
-    if (selectedElection) {
-      const fetchCons = async () => {
-        try {
-          const res = await adminGetConstituencies(selectedElection);
-          // Standardize response extraction for Render/Local
-          const list = Array.isArray(res.data) 
-            ? res.data 
-            : (res.data.constituencies || res.data.data || res.data.list || []);
-            
-          setConstituencies(list);
-          setSelectedConstituency('');
-        } catch (err) {
-          toast.error('Failed to load regions');
-        }
-      };
-      fetchCons();
-    } else {
-        setConstituencies([]);
-    }
-  }, [selectedElection]);
+    const fetchCons = async () => {
+      try {
+        // Universal fetch to bypass missing electionId links in database
+        const res = await adminGetConstituencies();
+        const list = Array.isArray(res.data) 
+          ? res.data 
+          : (res.data.constituencies || res.data.data || res.data.list || []);
+          
+        setConstituencies(list);
+      } catch (err) {
+        console.error('Failed to load regions');
+      }
+    };
+    fetchCons();
+  }, []);
 
   useEffect(() => {
     fetchIssues();
@@ -90,6 +87,12 @@ export default function IssuesAdmin() {
     }
   }
 
+  const filteredIssues = issues.filter(issue => 
+    issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (issue.id || (issue as any)._id).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       
@@ -108,8 +111,8 @@ export default function IssuesAdmin() {
           </p>
         </div>
         <div className="flex gap-4">
-            <div className="px-6 py-3 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 text-[10px] font-black uppercase tracking-widest">
-                Scoped Reports: {issues.length}
+            <div className="px-6 py-3 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-600 text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                <Target className="w-3 h-3" /> Scoped Reports: {filteredIssues.length}
             </div>
         </div>
       </div>
@@ -124,33 +127,53 @@ export default function IssuesAdmin() {
                 className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 font-bold text-gray-900 text-sm focus:border-orange-500 outline-none transition-all"
             >
                 <option value="">Select Election Cycle</option>
-                {elections.map(el => <option key={el.id || el._id} value={el.id || el._id}>{el.title}</option>)}
+                {elections.map(el => <option key={el.id || el._id} value={el.id || el._id}>{el.title || el.name}</option>)}
             </select>
         </div>
         <div className="flex-1 min-w-[200px]">
             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-2 block text-left">Target Region</label>
             <select 
                 value={selectedConstituency}
-                disabled={!selectedElection}
                 onChange={(e) => setSelectedConstituency(e.target.value)}
-                className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 font-bold text-gray-900 text-sm focus:border-orange-500 outline-none disabled:opacity-30 transition-all"
+                className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl px-4 font-bold text-gray-900 text-sm focus:border-orange-500 outline-none transition-all"
             >
                 <option value="">Select Constituency</option>
                 {constituencies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
             </select>
         </div>
+        <div className="flex-[2] min-w-[250px] relative group">
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1 mb-2 block text-left">Search Keywords</label>
+            <div className="relative">
+                <input 
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by title, description or ID..."
+                    className="w-full h-12 bg-gray-50 border border-gray-100 rounded-xl pl-12 pr-4 font-bold text-gray-900 text-sm focus:border-orange-500 focus:bg-white outline-none transition-all group-hover:border-gray-200"
+                />
+                <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-orange-500 transition-colors" />
+            </div>
+        </div>
+        <button 
+            onClick={fetchIssues}
+            disabled={loading || !selectedElection || !selectedConstituency}
+            className="h-12 px-8 bg-gray-900 hover:bg-black text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center gap-2 active:scale-95 disabled:opacity-30 shadow-lg shadow-gray-200"
+        >
+            <Search className="w-4 h-4" />
+            Find Records
+        </button>
       </div>
 
       <div className="w-full">
         {/* Right: Live Stream of Issues */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {issues.length === 0 ? (
+            {filteredIssues.length === 0 ? (
                 <div className="col-span-full h-64 border-2 border-dashed border-gray-100 rounded-[2.5rem] flex flex-col items-center justify-center text-center p-8 grayscale opacity-50 bg-white">
                         <Search className="w-10 h-10 mb-4 text-gray-300" />
                         <p className="font-black uppercase tracking-widest text-[10px] text-gray-400">Registry Is Empty</p>
                 </div>
             ) : (
-                issues.map((issue) => (
+                filteredIssues.map((issue) => (
                     <div key={issue.id || (issue as any)._id} className={`p-8 rounded-[2.5rem] bg-white border transition-all group shadow-sm hover:shadow-xl shadow-gray-200/50 ${issue.status === 'RESOLVED' ? 'border-emerald-500/20' : 'border-gray-100 hover:border-orange-500/30'}`}>
                             <div className="flex justify-between items-start mb-6">
                             <div className={`p-3 rounded-2xl transition-colors ${issue.status === 'RESOLVED' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-gray-50 text-gray-400 group-hover:bg-orange-500/10 group-hover:text-orange-500'}`}>

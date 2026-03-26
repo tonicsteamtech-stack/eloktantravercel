@@ -1,27 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
-import { Election } from '@/models/CoreModels';
+import { NextResponse } from 'next/server';
+import axios from 'axios';
+import { getBackendUrl } from '@/lib/api/config';
 
-// GET /api/elections
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+const ACTUAL_BACKEND = getBackendUrl();
+
+export async function GET() {
   try {
-    await connectDB();
-    const { searchParams } = new URL(request.url);
-    const constituency = searchParams.get('constituency');
-    const activeOnly = searchParams.get('active') !== 'false';
-
-    const query: any = {};
-    if (activeOnly) query.isActive = true;
-    if (constituency) query.constituency = constituency;
-
-    const elections = await Election.find(query)
-      .sort({ startDate: -1 })
-      .lean();
-
-    // Normalize _id to id for frontend
-    const normalized = elections.map(e => ({ ...e, id: e._id.toString() }));
-    return NextResponse.json({ success: true, count: normalized.length, elections: normalized });
+    const res = await axios.get(`${ACTUAL_BACKEND}/api/elections`, {
+        timeout: 45000
+    });
+    
+    // Senior Fix: Standardize response shape for the frontend
+    const result = res.data;
+    const elections = result.elections || result.data || result.list || [];
+    
+    return NextResponse.json({ 
+      success: true, 
+      count: elections.length, 
+      elections: elections.map((e: any) => ({
+        ...e,
+        _id: e.id || e._id, // Support both ID formats
+        title: e.title || e.name || 'Untitled Election' // Support both title/name formats
+      }))
+    });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error('Elections fetch failed:', err.message);
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useDigiLockerStore } from "@/lib/store/digilocker-store"
 import { ShieldCheck, Phone, Smartphone, ChevronRight, Fingerprint, Loader2, Sparkles, AlertCircle } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
+import { apiClient } from "@/lib/api/client"
 
 function LoginContent() {
   const router = useRouter()
@@ -63,13 +64,11 @@ function LoginContent() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/digilocker/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: inputValue })
+      const response = await apiClient.post('/digilocker/verify', { 
+        identifier: inputValue 
       });
 
-      const data = await response.json();
+      const data = response.data;
       
       if (data.success) {
         // Update store with REAL data from DB

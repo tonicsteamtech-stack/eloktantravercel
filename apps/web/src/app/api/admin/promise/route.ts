@@ -1,37 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
-import { requireAdmin } from '@/lib/adminAuth';
-import { Promise as PromiseModel } from '@/models/CoreModels';
+import axios from 'axios';
 
-// POST /api/admin/promise
+export const dynamic = 'force-dynamic';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-elokantra.onrender.com';
+
+/**
+ * POST /api/admin/promise
+ */
 export async function POST(request: NextRequest) {
-  const deny = requireAdmin(request);
-  if (deny) return deny;
-
   try {
-    await connectDB();
-    const { candidateId, electionId, constituency, title, description, deadline } = await request.json();
-    if (!candidateId || !constituency || !title || !description) {
-      return NextResponse.json({ success: false, error: 'candidateId, constituency, title, description are required' }, { status: 400 });
-    }
-    const promise = await PromiseModel.create({
-      candidateId, electionId, constituency, title, description,
-      deadline: deadline ? new Date(deadline) : undefined,
+    const body = await request.json();
+    const res = await axios.post(`${BACKEND_URL}/api/admin/promise`, body, {
+      headers: { 'x-admin-key': 'eLoktantra-AdminPortal-SecretKey-2024' }
     });
-    return NextResponse.json({ success: true, promise }, { status: 201 });
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
   }
 }
 
-// PATCH /api/admin/promise?id=xxx — update progress and status
-export async function PATCH(request: NextRequest) {
-  const deny = requireAdmin(request);
-  if (deny) return deny;
-  await connectDB();
-  const id = new URL(request.url).searchParams.get('id');
-  if (!id) return NextResponse.json({ success: false, error: 'id required' }, { status: 400 });
-  const body = await request.json();
-  const promise = await PromiseModel.findByIdAndUpdate(id, { $set: body }, { new: true });
-  return NextResponse.json({ success: true, promise });
+/**
+ * DELETE /api/admin/promise
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const res = await axios.delete(`${BACKEND_URL}/api/admin/promise?${searchParams.toString()}`, {
+      headers: { 'x-admin-key': 'eLoktantra-AdminPortal-SecretKey-2024' }
+    });
+    return NextResponse.json(res.data);
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
+  }
+}
+
+/**
+ * GET /api/admin/promise
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const res = await axios.get(`${BACKEND_URL}/api/admin/promise?${searchParams.toString()}`, {
+      headers: { 'x-admin-key': 'eLoktantra-AdminPortal-SecretKey-2024' }
+    });
+    return NextResponse.json(res.data);
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 502 });
+  }
 }

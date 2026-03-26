@@ -23,8 +23,8 @@ export default function DigiLockerUploadPage() {
       formData.append("voterCard", file)
       formData.append("name", user?.name || "Dev User")
       
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
-      const response = await fetch(`${baseUrl}/voter/upload-card`, {
+      // Use the Next.js API proxy route
+      const response = await fetch("/api/digilocker/upload", {
         method: "POST",
         body: formData
       })
@@ -36,7 +36,7 @@ export default function DigiLockerUploadPage() {
           id: data.userId || Math.random().toString(36).substr(2, 9),
           name: file.name,
           type: docType as any,
-          fileUrl: `${baseUrl}/uploads/${data.file}`, // Simulation url
+          fileUrl: `/api/digilocker/view/${data.file}`, // Use proxied view if needed
           uploadedAt: new Date().toISOString(),
           verified: true
         }

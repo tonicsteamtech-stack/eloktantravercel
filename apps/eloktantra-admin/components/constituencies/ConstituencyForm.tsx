@@ -42,7 +42,8 @@ export default function ConstituencyForm({ onSuccess, initialData }: Constituenc
     const fetchElections = async () => {
         try {
             const res = await adminGetElections();
-            setElections(Array.isArray(res.data) ? res.data : (res.data.elections || res.data.data || []));
+            const list = Array.isArray(res.data) ? res.data : (res.data.elections || res.data.data || []);
+            setElections(list);
         } catch (err) {
             console.error('Failed to bridge elections');
         }
@@ -86,7 +87,7 @@ export default function ConstituencyForm({ onSuccess, initialData }: Constituenc
           className="w-full h-14 px-5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all font-bold text-sm"
         >
             <option value="">Select Target Election</option>
-            {elections.map(el => <option key={el.id || el._id} value={el.id || el._id}>{el.title}</option>)}
+            {elections.map(el => <option key={el.id || el._id} value={el.id || el._id}>{el.title || el.name}</option>)}
         </select>
         {errors.electionId && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase">{errors.electionId.message}</p>}
       </div>

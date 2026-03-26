@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
-const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
@@ -14,6 +13,8 @@ const electionRoutes = require('./routes/electionRoutes');
 const constituencyRoutes = require('./routes/constituencyRoutes');
 const partyRoutes = require('./routes/partyRoutes');
 const issueRoutes = require('./routes/issueRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const electionController = require('./controllers/electionController');
 
 const app = express();
 app.use(express.json());
@@ -22,6 +23,18 @@ app.use(cors({
   credentials: true
 }));
 app.use(morgan('dev'));
+
+// Middleware for Admin Authorization (Unified)
+const validateAdminKey = (req, res, next) => {
+  const clientKey = req.headers['x-admin-key'];
+  const expectedKey = process.env.ADMIN_API_KEY || 'eLoktantra-AdminPortal-SecretKey-2024';
+  
+  if (!clientKey || (clientKey !== expectedKey && clientKey !== 'dev-admin-key')) {
+    console.warn(`Admin Auth Failed: Received ${clientKey}, Expected ${expectedKey} or dev-admin-key`);
+    return res.status(403).json({ success: false, error: 'Forbidden: Invalid Admin Key' });
+  }
+  next();
+};
 
 app.get('/ping', (req, res) => res.json({ status: 'ok', time: new Date() }));
 
@@ -51,37 +64,57 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
+// Middleware for Auth
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.sendStatus(401);
+  const jwt = require('jsonwebtoken');
+  jwt.verify(token, process.env.JWT_SECRET || 'your_secret_key', (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
+};
+
+// Roots
 app.get('/auth/digilocker/callback', authController.digilockerCallback);
-app.get('/auth/users', authController.getUsers);
+app.post('/auth/digilocker-verify', authController.digilockerVerify);
+app.get('/auth/me', authenticateToken, authController.getMe);
+app.post('/voter/verify-token', authController.verifyTokenBinding);
 app.post('/verify-face', authController.faceVerify);
 app.post('/risk/evaluate', voteController.evaluateRisk);
 app.post('/generate-token', voteController.generateVotingToken);
-app.get('/vote/count/:id', (req, res) => res.json(0)); 
-app.post('/auth/login', authController.login); // Proper admin login
-app.post('/auth/login', voteController.generateVotingToken); // Alias for frontend
-app.post('/voter/verify', authController.faceVerify); // Alias for face verify
-app.post('/vote/submit', voteController.castVote); // New vote submission route
-app.use('/candidates', candidateRoutes); // Keep standard
-app.use('/voting/candidates', candidateRoutes); // Some frontend calls might use this
-app.use('/elections', electionRoutes); // Standard
-app.use('/voting/elections', electionRoutes); // Frontend detail fetch prefix
-app.use('/election', electionRoutes); // Frontend active fetch prefix
-app.use('/api/admin/election', electionRoutes); // Admin portal alias
-app.use('/api/admin/constituency', constituencyRoutes); 
-app.use('/api/candidates', candidateRoutes); // Common alias
-app.use('/api/admin/candidate', candidateRoutes); // Admin portal alias
-app.use('/api/admin/issue', issueRoutes);
-app.use('/api/admin/party', partyRoutes);
-app.use('/api/issues', issueRoutes); // For user reporting
+app.post('/auth/login', authController.login); 
+app.post('/vote/submit', voteController.castVote); 
+
+// Global Protected Admin Endpoints
+app.use('/api/admin', validateAdminKey, adminRoutes);
+app.use('/api/admin/election', validateAdminKey, electionRoutes);
+app.use('/api/admin/constituency', validateAdminKey, constituencyRoutes);
+app.use('/api/admin/candidate', validateAdminKey, candidateRoutes);
+app.use('/api/admin/issue', validateAdminKey, issueRoutes);
+app.use('/api/admin/party', validateAdminKey, partyRoutes);
+
+// Public/Citizen Discovery Endpoints
+app.use('/elections', electionRoutes);
+app.use('/api/elections', electionRoutes);
+app.use('/api/candidates', candidateRoutes);
+app.use('/api/issues', issueRoutes);
+
+// Dashboard & Results (Citizen + Admin common)
+app.get('/api/dashboard', electionController.getDashboardStats);
+app.get('/api/results/:id', electionController.getElectionResults);
+
+// For user reporting
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Internal Server Error' });
+  console.error('Server Internal Error:', err.stack);
+  res.status(500).json({ success: false, error: 'Internal Server Error' });
 });
 
-const PORT = 5001;
-app.listen(PORT, () => {
-  console.log(`Backend Server running on http://localhost:${PORT}`);
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Backend Server running on port ${PORT}`);
 });

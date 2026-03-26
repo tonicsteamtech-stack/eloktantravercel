@@ -31,26 +31,25 @@ export default function CandidatesPage() {
     const fetchCandidates = async () => {
       try {
         setLoading(true);
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-        
-        // Build query string
+        // Use the Next.js API proxy route instead of hardcoded backend
         const queryParams = new URLSearchParams();
+        queryParams.append('electionId', electionId);
         if (searchTerm) queryParams.append('search', searchTerm);
         if (selectedParty !== 'All') queryParams.append('party', selectedParty);
-        queryParams.append('limit', '1000'); // Fetch enough to sort locally
+        queryParams.append('limit', '1000'); 
         
-        const response = await fetch(`${baseUrl}/candidates/${electionId}?${queryParams.toString()}`);
+        const response = await fetch(`/api/candidates?${queryParams.toString()}`);
         const result = await response.json();
         
         if (result.success) {
-          setCandidates(result.data);
+          setCandidates(result.candidates || result.data || []);
           setError(null);
         } else {
-          setError(result.message || 'Failed to fetch candidates');
+          setError(result.error || result.message || 'Failed to fetch candidates');
         }
       } catch (err) {
         console.error('Error fetching candidates:', err);
-        setError('Connection to backend failed. Make sure the server is running on :5001');
+        setError('Connection to backend failed. Please check your network.');
       } finally {
         setLoading(false);
       }

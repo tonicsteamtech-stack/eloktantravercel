@@ -1,51 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongodb';
-import { Vote } from '@/models/CoreModels';
-import { Election } from '@/models/CoreModels';
-import Candidate from '@/models/Candidate';
+import axios from 'axios';
 
-// GET /api/results/[electionId]
+export const dynamic = 'force-dynamic';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-elokantra.onrender.com';
+
+/**
+ * GET /api/results/[electionId]
+ * Proxy to Render Backend for real-time tally.
+ */
 export async function GET(
   _request: NextRequest,
   { params }: { params: { electionId: string } }
 ) {
   try {
-    await connectDB();
     const { electionId } = params;
-    if (!electionId) return NextResponse.json({ success: false, error: 'electionId required' }, { status: 400 });
-
-    const election = await Election.findById(electionId).lean();
-    if (!election) return NextResponse.json({ success: false, error: 'Election not found' }, { status: 404 });
-
-    // Aggregate votes by candidateId
-    const tally = await Vote.aggregate([
-      { $match: { electionId: (election as any)._id } },
-      { $group: { _id: '$candidateId', votes: { $sum: 1 } } },
-      { $sort: { votes: -1 } },
-    ]);
-
-    // Enrich with candidate details
-    const enriched = await Promise.all(
-      tally.map(async (t) => {
-        const candidate = await Candidate.findById(t._id).lean();
-        return {
-          candidateId: t._id.toString(),
-          candidateName: (candidate as any)?.name || 'Unknown',
-          party: (candidate as any)?.party || 'Unknown',
-          votes: t.votes,
-        };
-      })
-    );
-
-    const totalVotes = enriched.reduce((sum, r) => sum + r.votes, 0);
-
-    return NextResponse.json({
-      success: true,
-      election: { ...(election as any), id: (election as any)._id.toString() },
-      totalVotes,
-      results: enriched,
+    const res = await axios.get(`${BACKEND_URL}/api/results/${electionId}`, {
+        timeout: 90000 // 90s timeout (Extreme for Render cold-starts)
     });
+    return NextResponse.json(res.data);
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error('Results proxy error:', err.message);
+    return NextResponse.json({ success: false, error: err.response?.data?.error || 'Results retrieval failed' }, { status: 502 });
   }
 }

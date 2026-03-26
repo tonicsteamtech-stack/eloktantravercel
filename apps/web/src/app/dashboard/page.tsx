@@ -7,6 +7,7 @@ import {
   ChevronRight, AlertCircle, ShieldCheck, 
   ArrowRight, Landmark, Vote as VoteIcon
 } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 interface DashboardStats {
   totalCandidates: number;
@@ -22,9 +23,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/dashboard')
-      .then(r => r.json())
-      .then(data => {
+    apiClient.get('/dashboard')
+      .then(res => {
+        const data = res.data;
         if (data.success) {
           setStats(data.stats);
           setElections(data.activeElections || []);

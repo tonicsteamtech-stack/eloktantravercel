@@ -22,6 +22,12 @@ export default function ElectionsPage() {
         // Handle both standard list and wrapped object responses
         let list = Array.isArray(result) ? result : (result.elections || result.data || []);
         
+        // Match the same logic used in the admin portal to identify active elections
+        list = list.filter((e: any) => {
+          const isActive = e.is_active !== undefined ? e.is_active : e.isActive;
+          return isActive === true || isActive === 'true'; // Keep truthy
+        });
+
         // Filter by constituency if not Dev Mode
         const isDev = new URLSearchParams(window.location.search).get('dev') === 'true';
         if (!isDev && digitUser?.constituencyId) {

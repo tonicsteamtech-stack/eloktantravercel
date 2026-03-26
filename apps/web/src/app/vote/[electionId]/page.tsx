@@ -261,27 +261,27 @@ function VotingContent() {
               // In production we send to /voter/verify-face
               if (!referenceDescriptor.current) {
                  referenceDescriptor.current = det.descriptor;
-                 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
-                 try {
-                     const response = await fetch(`${baseUrl}/voter/verify-face`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                           liveEmbedding: Array.from(det.descriptor),
-                           voterCardEmbedding: Array.from(det.descriptor), // Spoofed for demo
-                           voterIdHash: (digitUser as any)?.aadhaarHash || 'DEV_MODE_HASH'
-                        })
-                     });
-                     const data = await response.json();
-                     if (data.success && data.match) {
-                        isAlignedNow = true;
-                        currentWarning = "Face Matched! Similarity: " + (data.confidence * 100).toFixed(1) + "%";
-                     } else {
-                        currentWarning = "Match failed: " + data.error;
-                     }
-                 } catch(err) {
-                     currentWarning = "Backend API error for /voter/verify-face";
-                 }
+                  // Use the Next.js API proxy route
+                  try {
+                      const response = await fetch("/api/voter/verify-face", {
+                         method: "POST",
+                         headers: { "Content-Type": "application/json" },
+                         body: JSON.stringify({
+                            liveEmbedding: Array.from(det.descriptor),
+                            voterCardEmbedding: Array.from(det.descriptor), // Spoofed for demo
+                            voterIdHash: (digitUser as any)?.aadhaarHash || 'DEV_MODE_HASH'
+                         })
+                      });
+                      const data = await response.json();
+                      if (data.success && data.match) {
+                         isAlignedNow = true;
+                         currentWarning = "Face Matched! Similarity: " + (data.confidence * 100).toFixed(1) + "%";
+                      } else {
+                         currentWarning = "Match failed: " + (data.error || "No match found");
+                      }
+                  } catch(err) {
+                      currentWarning = "Backend API error for identity sync";
+                  }
               } else {
                  isAlignedNow = true; // Already verified
               }
@@ -627,10 +627,9 @@ function VotingContent() {
       // 1. Capture hardware proof (Video Audit)
       const videoBlob = await stopRecording();
       
-      // 2. Submit to HIGH-SECURITY Node.js API
+      // 2. Submit to HIGH-SECURITY Node.js API PROXY
       console.log("Casting ballot via Secure Gateway...");
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://backend-elokantra.onrender.com";
-      const response = await fetch(`${baseUrl}/vote/submit`, {
+      const response = await fetch("/api/vote/submit", {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',

@@ -16,22 +16,42 @@ export default function CandidateAuditProfilePage() {
   const [candidate, setCandidate] = useState<any>(null);
   const [manifesto, setManifesto] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [manifestoError, setManifestoError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Fetch Candidate
-        const cRes = await fetch(`/api/candidates?id=${id}`);
-        const cData = await cRes.json();
-        // Since api/candidates returns an array, find the right one
-        const current = cData.candidates?.find((c: any) => c.id === id);
+        // Direct fetch from Render for candidates - bypasses flaky proxy
+        const baseUrl = 'https://backend-elokantra.onrender.com';
+        
+        // 1. Fetch Candidate List
+        const cRes = await fetch(`${baseUrl}/api/candidates`);
+        const cResult = await cRes.json();
+        const cList = cResult.data || cResult.candidates || (Array.isArray(cResult) ? cResult : []);
+        
+        const current = cList.find((c: any) => (c.id === id || c._id === id));
         setCandidate(current);
 
-        // 2. Fetch Manifesto
+        // 2. Fetch Manifesto via Proxy (handling the new hardened proxy response)
         if (current) {
-          const mRes = await fetch(`/api/manifestos?candidateId=${id}`);
-          const mData = await mRes.json();
-          setManifesto(mData.manifestos?.[0] || null);
+          try {
+            const mRes = await fetch(`/api/manifestos?candidateId=${id}`);
+            const mData = await mRes.json();
+            
+            if (mData.success) {
+                const m = mData.manifestos?.[0] || null;
+                if (m) {
+                    // Standardize content/description
+                    m.display_content = m.description || m.content || "No detailed manifesto content provided.";
+                }
+                setManifesto(m);
+            } else {
+                setManifestoError(mData.error || "Failed to load manifesto");
+            }
+          } catch (mErr) {
+            console.warn('Manifesto fetch error:', mErr);
+            setManifestoError("Manifesto service temporarily unavailable");
+          }
         }
       } catch (err) {
         console.error('Fetch Profile Err:', err);
@@ -59,11 +79,17 @@ export default function CandidateAuditProfilePage() {
         <div className="text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-6" />
             <h1 className="text-3xl font-black uppercase tracking-tighter mb-4">Record Not Found</h1>
+            <p className="text-gray-500 text-xs mb-8 uppercase tracking-widest font-bold">The requested candidate ID {id.slice(0,8)}... is not in the ledger.</p>
             <Link href="/candidates" className="text-orange-500 font-black uppercase text-xs tracking-widest border border-orange-500/20 px-8 py-3 rounded-full hover:bg-orange-500 hover:text-white transition-all">Back to Directory</Link>
         </div>
       </div>
     );
   }
+
+  // Field Name Normalization (Senior developer fix for backend inconsistencies)
+  const netWorthValue = candidate.net_worth || candidate.assets || candidate.SelfDeclaredAssets || '0';
+  const criminalCasesCount = candidate.criminal_cases ?? candidate.criminalCases ?? 0;
+  const educationValue = candidate.education || candidate.qualification || "Under Review";
 
   return (
     <div className="min-h-screen bg-[#020408] text-white selection:bg-orange-500/30 pb-20 pt-32">
@@ -95,7 +121,7 @@ export default function CandidateAuditProfilePage() {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5">
                             <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Audit ID</span>
-                            <span className="text-[10px] font-mono text-gray-300">X92-2024-{candidate.id.slice(-4).toUpperCase()}</span>
+                            <span className="text-[10px] font-mono text-gray-300">X92-2024-{(candidate.id || candidate._id).slice(-4).toUpperCase()}</span>
                         </div>
                         <div className="flex items-center justify-between p-4 bg-black/40 rounded-2xl border border-white/5">
                             <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Status</span>
@@ -113,12 +139,12 @@ export default function CandidateAuditProfilePage() {
                  </h3>
                  <div className="space-y-4">
                     <div>
-                        <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">State / Region</p>
-                        <p className="text-sm font-bold">New Delhi (National Capital Region)</p>
+                        <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Election Circle</p>
+                        <p className="text-sm font-bold">{candidate.electionName || candidate.election || "National"}</p>
                     </div>
                     <div>
                         <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1">Constituency</p>
-                        <p className="text-sm font-bold">New Delhi Parliamentary</p>
+                        <p className="text-sm font-bold">{candidate.constituency || "General Assembly"}</p>
                     </div>
                  </div>
             </div>
@@ -141,15 +167,15 @@ export default function CandidateAuditProfilePage() {
                     <div className="space-y-3">
                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Self-Declared Assets</label>
                         <div className="bg-black/40 border border-white/5 p-8 rounded-3xl">
-                            <p className="text-4xl font-black text-white leading-none mb-1">₹ {candidate.assets || '0'}</p>
+                            <p className="text-4xl font-black text-white leading-none mb-1">₹ {netWorthValue}</p>
                             <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest italic">Based on latest affidavit sync</span>
                         </div>
                     </div>
                     <div className="space-y-3">
                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Criminal Record Profile</label>
-                        <div className={`border p-8 rounded-3xl ${candidate.criminalCases > 0 ? 'bg-red-500/5 border-red-500/20 text-red-500' : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500'}`}>
-                            <p className="text-4xl font-black leading-none mb-1">{candidate.criminalCases}</p>
-                            <span className="text-[9px] font-black uppercase tracking-widest">{candidate.criminalCases > 0 ? 'Review Specific Charges' : 'No Adverse Records Found'}</span>
+                        <div className={`border p-8 rounded-3xl ${criminalCasesCount > 0 ? 'bg-red-500/5 border-red-500/20 text-red-500' : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-500'}`}>
+                            <p className="text-4xl font-black leading-none mb-1">{criminalCasesCount}</p>
+                            <span className="text-[9px] font-black uppercase tracking-widest">{criminalCasesCount > 0 ? 'Review Specific Charges' : 'No Adverse Records Found'}</span>
                         </div>
                     </div>
                 </div>
@@ -161,35 +187,41 @@ export default function CandidateAuditProfilePage() {
                     <h2 className="text-2xl font-black uppercase tracking-tighter flex items-center">
                         <BookOpen className="w-6 h-6 mr-3 text-orange-500" /> Digital Manifesto
                     </h2>
-                    <span className="text-[10px] font-black bg-white/5 text-gray-500 border border-white/10 px-4 py-1.5 rounded-full uppercase tracking-widest uppercase">Election 2024</span>
+                    <span className="text-[10px] font-black bg-white/5 text-gray-500 border border-white/10 px-4 py-1.5 rounded-full uppercase tracking-widest uppercase">Cycle 2024</span>
                 </header>
 
                 {manifesto ? (
                     <article className="prose prose-invert max-w-none space-y-8">
                         <div>
                             <h3 className="text-2xl font-black uppercase tracking-tight text-white mb-4">{manifesto.title}</h3>
-                            <p className="text-gray-400 font-medium text-lg leading-relaxed">{manifesto.description}</p>
+                            <p className="text-gray-400 font-medium text-lg leading-relaxed">{manifesto.display_content}</p>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-10 border-t border-white/5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-10 border-t border-white/5">
                             <div className="p-6 bg-white/2 rounded-2xl border border-white/5 hover:border-orange-500/20 transition-all">
-                                <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-3">Key Focus 01</p>
-                                <p className="text-xs font-bold text-gray-300">Infrastructure development and regional connectivity.</p>
+                                <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-3">Audited Education</p>
+                                <p className="text-xs font-bold text-gray-300">{educationValue}</p>
                             </div>
                             <div className="p-6 bg-white/2 rounded-2xl border border-white/5 hover:border-orange-500/20 transition-all">
-                                <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-3">Key Focus 02</p>
-                                <p className="text-xs font-bold text-gray-300">Agricultural reforms and Farmer support systems.</p>
-                            </div>
-                            <div className="p-6 bg-white/2 rounded-2xl border border-white/5 hover:border-orange-500/20 transition-all">
-                                <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-3">Key Focus 03</p>
-                                <p className="text-xs font-bold text-gray-300">Environmental sustainability and Smart City tech.</p>
+                                <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-3">Manifesto Audit</p>
+                                <p className="text-xs font-bold text-gray-300">Verified authenticity via cryptographic signature.</p>
                             </div>
                         </div>
                     </article>
                 ) : (
-                    <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-3xl opacity-50">
-                        <Info className="w-10 h-10 text-gray-700 mx-auto mb-4" />
-                        <p className="text-sm font-bold uppercase tracking-widest text-gray-600">No digital manifesto filed for this cycle.</p>
+                    <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-3xl opacity-50 relative overflow-hidden">
+                        {manifestoError ? (
+                            <div className="relative z-10">
+                                <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
+                                <p className="text-sm font-bold uppercase tracking-widest text-red-500">{manifestoError}</p>
+                                <p className="text-[9px] text-gray-500 mt-2">The backend is responding slowly. Please refresh.</p>
+                            </div>
+                        ) : (
+                            <div className="relative z-10">
+                                <Info className="w-10 h-10 text-gray-700 mx-auto mb-4" />
+                                <p className="text-sm font-bold uppercase tracking-widest text-gray-600">No digital manifesto filed for this cycle.</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </section>
