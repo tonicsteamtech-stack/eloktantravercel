@@ -19,8 +19,17 @@ export default function CreateElectionPage() {
     isActive: false,
   });
 
+  const today = new Date().toISOString().split('T')[0];
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.endDate < formData.startDate) {
+      toast.error('Polling End cannot be before Polling Start');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       // 1. Initialized in Render Backend (Source of Truth)
@@ -105,8 +114,17 @@ export default function CreateElectionPage() {
                 <input 
                   type="date"
                   required
+                  min={today}
                   value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setFormData({ 
+                      ...formData, 
+                      startDate: newStart,
+                      // If new start is after current end, reset end to start
+                      endDate: formData.endDate && formData.endDate < newStart ? newStart : formData.endDate
+                    });
+                  }}
                   className="w-full pl-14 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all font-bold text-gray-900"
                 />
               </div>
@@ -118,6 +136,7 @@ export default function CreateElectionPage() {
                 <input 
                   type="date"
                   required
+                  min={formData.startDate || today}
                   value={formData.endDate}
                   onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                   className="w-full pl-14 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all font-bold text-gray-900"
