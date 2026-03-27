@@ -2,104 +2,208 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { useTheme } from '@/app/theme-provider';
+import { useState, useEffect, useRef } from 'react';
+import { Globe, ChevronDown } from 'lucide-react';
+
+const LANGUAGES = [
+  { code: 'en', label: 'English',    native: 'English' },
+  { code: 'hi', label: 'Hindi',      native: 'हिंदी' },
+  { code: 'bn', label: 'Bengali',    native: 'বাংলা' },
+  { code: 'ta', label: 'Tamil',      native: 'தமிழ்' },
+  { code: 'te', label: 'Telugu',     native: 'తెలుగు' },
+  { code: 'mr', label: 'Marathi',    native: 'मराठी' },
+  { code: 'gu', label: 'Gujarati',   native: 'ગુજરાતી' },
+];
 
 const Navbar = () => {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeLang, setActiveLang] = useState(LANGUAGES[0]);
+  const [langOpen, setLangOpen] = useState(false);
+  const langRef = useRef<HTMLDivElement>(null);
 
+  // Bootstrap Google Translate
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    if (document.getElementById('gt-script')) return;
+    (window as any).googleTranslateElementInit = () => {
+      new (window as any).google.translate.TranslateElement(
+        { pageLanguage: 'en', includedLanguages: 'en,hi,bn,ta,te,mr,gu', autoDisplay: false },
+        'google_translate_element'
+      );
+    };
+    const s = document.createElement('script');
+    s.id = 'gt-script';
+    s.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+    s.async = true;
+    document.body.appendChild(s);
   }, []);
 
-  // Close menu when pathname changes
+  // Close lang dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) setLangOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const switchLang = (lang: typeof LANGUAGES[0]) => {
+    setActiveLang(lang);
+    setLangOpen(false);
+    // Trigger Google Translate cookie
+    const select = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+    if (select) {
+      select.value = lang.code;
+      select.dispatchEvent(new Event('change'));
+    }
+  };
+
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   useEffect(() => setIsMenuOpen(false), [pathname]);
 
   const navLinks = [
-    { label: 'Candidates', href: '/candidates' },
+    { label: 'Home', href: '/' },
     { label: 'Elections', href: '/elections' },
+    { label: 'Candidates', href: '/candidates' },
     { label: 'Manifestos', href: '/manifestos' },
     { label: 'Issues', href: '/issues' },
-    { label: 'Dashboard', href: '/dashboard' },
-
+    { label: 'Voter Dashboard', href: '/dashboard' },
   ];
 
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : pathname?.startsWith(href);
 
   return (
     <>
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 navbar-surface transition-all duration-300 ${
-          scrolled ? 'h-14 shadow-lg shadow-black/20' : 'h-16'
+      {/* ── TRICOLOR BAR ── */}
+      <div className="gov-tricolor-bar fixed top-0 left-0 right-0 z-50" />
+
+      {/* ── MAIN HEADER ── */}
+      <header
+        className={`fixed top-[6px] left-0 right-0 z-50 gov-header transition-shadow duration-200 ${
+          isScrolled ? 'shadow-lg' : ''
         }`}
       >
-        <div className="container mx-auto px-4 md:px-6 h-full flex justify-between items-center">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30 group-hover:shadow-primary/50 transition-shadow">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+        {/* Logo row */}
+        <div className="container mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-4">
+          {/* Emblem + Title */}
+          <Link href="/" className="flex items-center gap-4 group no-underline">
+            {/* Ashoka Chakra SVG emblem */}
+            <div className="flex-shrink-0">
+              <svg
+                width="52"
+                height="52"
+                viewBox="0 0 52 52"
+                fill="none"
+                className="drop-shadow-md"
+                aria-label="National Emblem"
+              >
+                {/* Outer ring */}
+                <circle cx="26" cy="26" r="24" fill="#FF9933" opacity="0.15" />
+                <circle cx="26" cy="26" r="24" stroke="#FF9933" strokeWidth="2" fill="none" />
+                {/* Chakra spokes */}
+                {Array.from({ length: 24 }, (_, i) => {
+                  const angle = (i * 360) / 24;
+                  const rad = (angle * Math.PI) / 180;
+                  const x1 = 26 + 10 * Math.cos(rad);
+                  const y1 = 26 + 10 * Math.sin(rad);
+                  const x2 = 26 + 22 * Math.cos(rad);
+                  const y2 = 26 + 22 * Math.sin(rad);
+                  return (
+                    <line
+                      key={i}
+                      x1={x1} y1={y1} x2={x2} y2={y2}
+                      stroke="#003087"
+                      strokeWidth="1.2"
+                    />
+                  );
+                })}
+                {/* Hub */}
+                <circle cx="26" cy="26" r="6" fill="#003087" />
+                <circle cx="26" cy="26" r="3" fill="#FF9933" />
+                {/* Stars between spokes */}
+                {Array.from({ length: 12 }, (_, i) => {
+                  const angle = ((i * 360) / 12 + 7.5) * Math.PI / 180;
+                  const cx = 26 + 16 * Math.cos(angle);
+                  const cy = 26 + 16 * Math.sin(angle);
+                  return <circle key={i} cx={cx} cy={cy} r="1.2" fill="#003087" />;
+                })}
               </svg>
             </div>
-            <span className="nav-logo orange-text-gradient">eLoktantra</span>
+
+            <div>
+              <div
+                className="text-white font-bold leading-tight"
+                style={{ fontFamily: "'Noto Serif', Georgia, serif", fontSize: '1.2rem' }}
+              >
+                eLok<span style={{ color: '#FF9933' }}>Tantra</span>
+              </div>
+              <div className="text-white/70 text-xs leading-tight" style={{ fontFamily: 'Noto Sans, Arial, sans-serif' }}>
+                भारत निर्वाचन आयोग • Election Commission of India
+              </div>
+              <div className="text-white/50 text-[10px] tracking-wider uppercase" style={{ fontFamily: 'Noto Sans, Arial, sans-serif' }}>
+                Digital Voting &amp; Civic Transparency Platform
+              </div>
+            </div>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`nav-link px-3 py-1.5 rounded-md text-sm ${
-                  pathname === link.href || pathname?.startsWith(link.href + '/')
-                    ? 'nav-active text-foreground bg-white/5'
-                    : ''
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Right Actions */}
+          {/* Right: LangSwitch + Vote CTA + mobile toggle */}
           <div className="flex items-center gap-3">
-            {/* Theme Toggle */}
-            <button
-              aria-label="Toggle theme"
-              onClick={toggleTheme}
-              className="p-2 rounded-lg border border-border text-muted hover:text-foreground hover:border-border-hover hover:bg-white/5 transition-all"
-            >
-              {theme === 'theme-dark' ? (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2m0 16v2m10-10h-2M4 12H2m15.364-6.364l-1.414 1.414M7.05 16.95l-1.414 1.414m0-11.314L7.05 7.05m10.9 10.9l1.414 1.414" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
-                </svg>
-              )}
-            </button>
 
-            {/* Vote CTA */}
-            <Link href="/vote" className="btn-vote hidden sm:inline-flex">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            {/* ── Language Selector ── */}
+            <div ref={langRef} className="relative hidden sm:block">
+              <button
+                onClick={() => setLangOpen(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors"
+                style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.25)', color: 'rgba(255,255,255,0.85)', fontFamily: 'Noto Sans, Arial, sans-serif' }}
+                aria-label="Select language"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                {activeLang.native}
+                <ChevronDown className={`w-3 h-3 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {langOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded shadow-xl z-50 overflow-hidden"
+                  style={{ fontFamily: 'Noto Sans, Arial, sans-serif' }}
+                >
+                  {LANGUAGES.map(lang => (
+                    <button
+                      key={lang.code}
+                      onClick={() => switchLang(lang)}
+                      className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 flex items-center justify-between transition-colors"
+                      style={{ color: activeLang.code === lang.code ? '#003087' : '#374151', fontWeight: activeLang.code === lang.code ? 600 : 400 }}
+                    >
+                      <span>{lang.native}</span>
+                      <span className="text-xs text-gray-400">{lang.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Hidden Google Translate element */}
+            <div id="google_translate_element" className="hidden" />
+
+            <Link href="/vote" className="btn-gov-accent hidden sm:inline-flex">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Vote Now
+              Cast Vote
             </Link>
 
             {/* Hamburger */}
             <button
-              className="lg:hidden p-2 rounded-lg border border-border text-muted hover:text-foreground hover:bg-white/5 transition-all"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label="Toggle menu"
+              className="lg:hidden p-2 text-white/70 hover:text-white border border-white/20 rounded"
+              aria-label="Open menu"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 {isMenuOpen
                   ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -108,33 +212,44 @@ const Navbar = () => {
             </button>
           </div>
         </div>
-      </nav>
 
-      {/* Mobile Menu */}
+        {/* ── NAV STRIP ── */}
+        <nav className="gov-nav-strip hidden lg:block">
+          <div className="container mx-auto max-w-7xl px-4 flex items-center">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`gov-nav-link ${isActive(link.href) ? 'gov-nav-active' : ''}`}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {/* Citizen Services label on right */}
+            <div className="ml-auto px-4 text-white/40 text-xs uppercase tracking-widest" style={{ fontFamily: 'Noto Sans, Arial, sans-serif' }}>
+              Citizen Portal
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      {/* ── MOBILE DRAWER ── */}
       <div
-        className={`lg:hidden fixed inset-0 top-0 z-40 transition-all duration-300 ${
+        className={`lg:hidden fixed inset-0 z-40 transition-opacity duration-300 ${
           isMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
-        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/50" onClick={() => setIsMenuOpen(false)} />
         <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          onClick={() => setIsMenuOpen(false)}
-        />
-
-        {/* Drawer */}
-        <div
-          className={`absolute top-0 right-0 h-full w-72 navbar-surface border-l border-border shadow-2xl transition-transform duration-300 ${
-            isMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          className={`absolute top-0 left-0 h-full w-72 transition-transform duration-300 ${
+            isMenuOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
+          style={{ background: '#001f5b' }}
         >
-          {/* Drawer Header */}
-          <div className="flex items-center justify-between px-6 h-16 border-b border-border">
-            <span className="nav-logo orange-text-gradient">Menu</span>
-            <button
-              onClick={() => setIsMenuOpen(false)}
-              className="p-2 rounded-lg hover:bg-white/5 text-muted hover:text-foreground transition-colors"
-            >
+          {/* Drawer header */}
+          <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
+            <span className="text-white font-semibold" style={{ fontFamily: 'Noto Serif, serif' }}>Navigation</span>
+            <button onClick={() => setIsMenuOpen(false)} className="text-white/60 hover:text-white p-1">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -142,37 +257,50 @@ const Navbar = () => {
           </div>
 
           {/* Links */}
-          <div className="flex flex-col p-6 gap-1">
-            {navLinks.map((link, i) => (
+          <div className="flex flex-col">
+            {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center justify-between px-4 py-3 rounded-xl text-base font-medium transition-all ${
-                  pathname === link.href
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'text-muted-light hover:bg-white/5 hover:text-foreground'
+                className={`px-5 py-3 text-sm border-b border-white/10 transition-colors ${
+                  isActive(link.href)
+                    ? 'bg-[#FF9933] text-[#1a1a2e] font-semibold'
+                    : 'text-white/80 hover:bg-white/10 hover:text-white'
                 }`}
-                style={{ animationDelay: `${i * 40}ms` }}
+                style={{ fontFamily: 'Noto Sans, Arial, sans-serif' }}
               >
                 {link.label}
-                <svg className="w-4 h-4 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
               </Link>
             ))}
           </div>
 
-          {/* Vote CTA */}
-          <div className="px-6 mt-2">
-            <Link
-              href="/vote"
-              className="btn-vote w-full justify-center text-sm py-3.5"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Cast Your Vote
+          {/* Mobile Language Selector */}
+          <div className="px-4 py-3 border-b border-white/10">
+            <p className="text-white/40 text-xs uppercase tracking-wider mb-2">Select Language</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {LANGUAGES.map(lang => (
+                <button
+                  key={lang.code}
+                  onClick={() => { switchLang(lang); setIsMenuOpen(false); }}
+                  className="text-left px-2 py-1.5 rounded text-xs transition-colors"
+                  style={{ background: activeLang.code === lang.code ? '#FF9933' : 'rgba(255,255,255,0.07)', color: activeLang.code === lang.code ? '#1a1a2e' : 'rgba(255,255,255,0.75)', fontFamily: 'Noto Sans, Arial, sans-serif', fontWeight: activeLang.code === lang.code ? 600 : 400 }}
+                >
+                  {lang.native}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile CTAs */}
+          <div className="p-4 flex flex-col gap-2 mt-2">
+            <Link href="/vote" className="btn-gov-accent justify-center">
+              Cast Vote
             </Link>
+          </div>
+
+          {/* Satyameva Jayate */}
+          <div className="absolute bottom-6 left-0 right-0 text-center text-white/30 text-xs" style={{ fontFamily: 'Noto Serif, serif' }}>
+            सत्यमेव जयते
           </div>
         </div>
       </div>

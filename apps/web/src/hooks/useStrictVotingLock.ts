@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react"
 
-export const useStrictVotingLock = () => {
-  const [isLocked, setIsLocked] = useState(true)
+export const useStrictVotingLock = (isActive: boolean = true) => {
+  const [isLocked, setIsLocked] = useState(isActive)
   const [violated, setViolated] = useState(false)
   const violationCount = useRef(0)
 
   useEffect(() => {
+    if (!isActive) return;
+    setIsLocked(true);
     const enterFullscreen = async () => {
       try {
         if (!document.fullscreenElement) {
@@ -102,7 +104,7 @@ export const useStrictVotingLock = () => {
       document.removeEventListener("contextmenu", blockRightClick)
       window.removeEventListener("beforeunload", preventUnload)
     }
-  }, [isLocked])
+  }, [isActive, isLocked])
 
   const unlock = () => {
     setIsLocked(false)
