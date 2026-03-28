@@ -61,8 +61,27 @@ export const fetchElections = async (): Promise<Election[]> => {
 export const fetchElectionById = async (id: string): Promise<ElectionDetail> => {
   try {
     const { data } = await apiClient.get(`/elections/${id}`);
-    const election = data.election || data.data || data;
-    return election || DEMO_ELECTION;
+    const raw = data.election || data.data || data;
+    
+    if (!raw || Object.keys(raw).length === 0) return DEMO_ELECTION;
+
+    // Standardize the election object — map MongoDB _id to id
+    const election: ElectionDetail = {
+      id: raw.id || raw._id || id,
+      title: raw.title || raw.name || 'Election',
+      constituency: raw.constituency || 'General',
+      start_time: raw.start_time || raw.startDate || new Date().toISOString(),
+      end_time: raw.end_time || raw.endDate || new Date().toISOString(),
+      status: raw.status || 'ACTIVE',
+      candidates: (raw.candidates || []).map((c: any) => ({
+        id: c.id || c._id,
+        name: c.name,
+        party: c.party || c.party_name || 'Independent',
+        constituency: c.constituency || raw.constituency || 'General'
+      })),
+    };
+    
+    return election;
   } catch (error) {
     console.warn('Failed to fetch election details from backend, using Demo Data:', error);
     return DEMO_ELECTION;
@@ -95,7 +114,7 @@ export const castVote = async (params: {
     return { txHash: data.txHash || 'demo-tx-hash', receipt: data.receipt || 'demo-receipt' };
   } catch (error) {
     console.warn('Failed to cast vote, returning DEMO success:', error);
-    return { txHash: '0x' + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join(''), receipt: 'DEMO-RECEIPT' };
+    return { txHash: '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''), receipt: 'DEMO-RECEIPT' };
   }
 };
 

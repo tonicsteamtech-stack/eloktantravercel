@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ShieldCheck, ArrowRight, User, Search, Info } from 'lucide-react';
+import { ShieldCheck, ArrowRight, User, Info } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CandidatesPage() {
@@ -12,12 +11,9 @@ export default function CandidatesPage() {
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
-        // Direct fetch from Render - bypassing the flaky Next.js proxy
         const baseUrl = 'https://backend-elokantra.onrender.com';
         const response = await fetch(`${baseUrl}/api/candidates`);
         const result = await response.json();
-        
-        // Match the exact data structure verified via curl: {"data": [...]}
         const list = result.data || result.candidates || (Array.isArray(result) ? result : []);
         setCandidates(list);
       } catch (error) {
@@ -31,95 +27,113 @@ export default function CandidatesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#020408]">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Establishing Secure Connection...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f2f4f7' }}>
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#003087', borderTopColor: 'transparent' }} />
+          <p className="text-sm text-gray-500" style={{ fontFamily: 'Noto Sans, Arial, sans-serif' }}>Loading Candidate Directory...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020408] text-white selection:bg-orange-500/30">
-      <div className="container mx-auto px-6 py-24 max-w-7xl">
-        {/* Header Section */}
-        <header className="mb-20 text-center space-y-6">
-          <div className="inline-flex items-center px-4 py-2 rounded-full border border-orange-500/20 bg-orange-500/5 backdrop-blur-xl mb-4">
-            <ShieldCheck className="w-4 h-4 text-orange-500 mr-2" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">Verified Citizen Directory</span>
-          </div>
-          <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tight leading-none">
-            Verified <br />
-            <span className="text-orange-500">Candidates</span>
-          </h1>
-          <p className="text-gray-400 font-medium text-sm md:text-base max-w-2xl mx-auto leading-relaxed uppercase tracking-wide">
-            Browse all officially registered candidates for the current election cycle.
-          </p>
-        </header>
+    <div className="min-h-screen" style={{ background: '#f2f4f7', fontFamily: 'Noto Sans, Arial, sans-serif' }}>
 
-        {/* Candidates Grid */}
-        <div className="flex justify-center">
-          {candidates.length === 0 ? (
-            <div className="text-center py-20 border border-white/5 bg-white/2 rounded-[3rem] w-full max-w-2xl">
-              <Info className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">No candidates found in the registry.</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-8 px-8 py-4 bg-[#0d1117] border border-white/10 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-orange-500/50 transition-all"
-              >
-                Force Registry Refresh
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 w-full">
-              {candidates.map((candidate, idx) => (
-                <CandidateCard key={candidate.id || candidate._id || idx} c={candidate} />
-              ))}
-            </div>
-          )}
+      {/* Page Header Banner */}
+      <div style={{ background: '#003087', borderBottom: '4px solid #FF9933' }}>
+        <div className="container mx-auto max-w-7xl px-4 py-8">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-1.5 h-6 rounded" style={{ background: '#FF9933' }} />
+            <h1 className="text-2xl font-bold text-white" style={{ fontFamily: 'Noto Serif, Georgia, serif' }}>
+              Candidate Directory
+            </h1>
+          </div>
+          <p className="text-white/60 text-sm ml-4">
+            प्रत्याशी निर्देशिका • Officially registered candidates with verified disclosures
+          </p>
         </div>
+      </div>
+
+      {/* Breadcrumb */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2">
+        <div className="container mx-auto max-w-7xl text-xs text-gray-500">
+          <span>Home</span> <span className="mx-2">›</span> <span className="text-gray-800 font-medium">Candidates</span>
+        </div>
+      </div>
+
+      <div className="container mx-auto max-w-7xl px-4 py-8">
+
+        {/* Info bar */}
+        <div className="flex items-center gap-3 mb-6">
+          <ShieldCheck className="w-4 h-4 flex-shrink-0" style={{ color: '#138808' }} />
+          <span className="text-sm text-gray-600">
+            All candidates have undergone identity verification. Asset declarations and criminal records are publicly disclosed.
+          </span>
+        </div>
+
+        {candidates.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded p-12 text-center" style={{ borderTop: '3px solid #003087' }}>
+            <Info className="w-10 h-10 mx-auto mb-4 text-gray-300" />
+            <p className="font-semibold text-gray-600 mb-1">No candidates found in the registry.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-gov-primary mt-4"
+            >
+              Refresh Registry
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {candidates.map((candidate, idx) => (
+              <CandidateCard key={candidate.id || candidate._id || idx} c={candidate} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 function CandidateCard({ c }: { c: any }) {
-    const candidateId = c.id || c._id?.toString() || "";
-    return (
-        <div className="group relative bg-[#0d1117] border border-white/5 rounded-[2.5rem] overflow-hidden hover:border-orange-500/30 transition-all duration-500 flex flex-col hover:shadow-[0_20px_50px_rgba(245,158,11,0.05)]">
-            <div className="p-8 pb-4 flex-grow">
-                <div className="flex justify-between items-start mb-8">
-                <div className="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center font-black text-2xl text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-all duration-500 border border-orange-500/10 shadow-inner">
-                    {c.name?.charAt(0) || <User className="w-6 h-6" />}
-                </div>
-                <div className="px-4 py-1.5 rounded-full border border-white/10 bg-white/5 group-hover:border-orange-500/20 group-hover:bg-orange-500/10 transition-all">
-                    <span className="text-[9px] font-black uppercase text-gray-400 group-hover:text-orange-500 tracking-widest">{c.party || "IND"}</span>
-                </div>
-                </div>
-
-                <h3 className="text-2xl font-black mb-1 group-hover:text-orange-500 transition-colors uppercase tracking-tight leading-none">{c.name || "Untitled"}</h3>
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-6 border-b border-white/5 pb-4">
-                   ID: {candidateId.slice(-12).toUpperCase()}
-                </p>
-
-                <div className="space-y-3">
-                    <div className="flex justify-between items-center text-[10px]">
-                        <span className="font-bold text-gray-500 uppercase tracking-widest">Election</span>
-                        <span className="font-black text-white uppercase">{c.electionName || c.election || "National"}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="p-2">
-                <Link 
-                    href={`/candidates/${candidateId}`}
-                    className="w-full bg-white/5 py-4 flex items-center justify-center space-x-2 rounded-[1.5rem] border border-white/10 group-hover:bg-orange-500 transition-all duration-500"
-                >
-                    <span className="text-[10px] font-black uppercase tracking-widest group-hover:text-white">Profile Detail</span>
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform group-hover:text-white" />
-                </Link>
-            </div>
+  const candidateId = c.id || c._id?.toString() || '';
+  return (
+    <div className="gov-card flex flex-col">
+      <div className="p-5 flex-grow">
+        {/* Top row */}
+        <div className="flex justify-between items-start mb-4">
+          <div
+            className="w-12 h-12 rounded flex items-center justify-center font-bold text-lg"
+            style={{ background: 'rgba(0,48,135,0.08)', color: '#003087' }}
+          >
+            {c.name?.charAt(0) || <User className="w-5 h-5" />}
+          </div>
+          <span className="gov-badge" style={{ background: 'rgba(255,153,51,0.1)', color: '#8B3A00', border: '1px solid rgba(255,153,51,0.3)', fontSize: '0.7rem' }}>
+            {c.party || 'IND'}
+          </span>
         </div>
-    );
+
+        <h3 className="text-base font-bold text-gray-800 mb-0.5" style={{ fontFamily: 'Noto Serif, Georgia, serif' }}>
+          {c.name || 'Untitled'}
+        </h3>
+        <p className="text-xs text-gray-400 mb-4 pb-3 border-b border-gray-100">
+          ID: {candidateId.slice(-12).toUpperCase()}
+        </p>
+
+        <div className="flex justify-between items-center text-xs">
+          <span className="text-gray-500 font-medium uppercase tracking-wide">Election</span>
+          <span className="font-semibold text-gray-700 text-right max-w-[60%]">{c.electionName || c.election || 'National'}</span>
+        </div>
+      </div>
+
+      <div className="p-3 border-t border-gray-100">
+        <Link
+          href={`/candidates/${candidateId}`}
+          className="btn-gov-primary w-full justify-center text-xs"
+        >
+          Profile Detail
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    </div>
+  );
 }
