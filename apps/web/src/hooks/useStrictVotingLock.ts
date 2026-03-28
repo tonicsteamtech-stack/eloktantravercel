@@ -35,19 +35,26 @@ export const useStrictVotingLock = (isActive: boolean = true) => {
 
     enterFullscreen();
 
+    // ⚡ Dev Mode Bypass: Don't terminate the session if ?dev=true is in the URL
+    const isDev = typeof window !== 'undefined' && window.location.search.includes('dev=true');
+
     // 🚫 TAB SWITCH / WINDOW BLUR
     const handleBlur = () => {
-      if (isLocked) {
+      if (isLocked && !isDev) {
         violationCount.current += 1;
         setViolated(true);
+      } else if (isDev) {
+        console.warn("Dev Mode: Ignoring Window Blur violation.");
       }
     };
 
     // 🚫 VISIBILITY CHANGE
     const handleVisibility = () => {
-      if (document.hidden && isLocked) {
+      if (document.hidden && isLocked && !isDev) {
         violationCount.current += 1;
         setViolated(true);
+      } else if (isDev && document.hidden) {
+        console.warn("Dev Mode: Ignoring Visibility Change violation.");
       }
     };
 
