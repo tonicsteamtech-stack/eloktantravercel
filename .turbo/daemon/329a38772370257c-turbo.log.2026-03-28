@@ -34,3 +34,9 @@
 2026-03-28T05:02:47.037109Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(All)
 2026-03-28T05:03:23.533242Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/package.json")}
 2026-03-28T05:03:23.533283Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-28T05:11:49.634853Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package.json")}
+2026-03-28T05:11:49.635159Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(All)
+2026-03-28T05:12:05.414085Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps/web/package.json")}
+2026-03-28T05:12:05.414098Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("web"), path: AnchoredSystemPathBuf("apps/web") }}))
+2026-03-28T05:12:36.913170Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".npmrc")}
+2026-03-28T05:12:36.913301Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
