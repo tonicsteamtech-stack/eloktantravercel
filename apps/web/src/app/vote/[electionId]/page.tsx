@@ -531,7 +531,16 @@ function VotingContent() {
         completeSession();
         unlock();
         alert(`Vote successfully recorded and verified.\n\nTransaction Hash: ${voteHash}\nViolations: ${violations}\n\nThank you for participating in a secure, transparent election.`);
-        router.push("/dashboard");
+        
+        // Redirect to Certificate of Acknowledgement
+        const params = new URLSearchParams();
+        params.set('election', election?.title || election?.name || 'Election Unit');
+        params.set('constituency', election?.constituency || 'National');
+        params.set('hash', voteHash);
+        params.set('voterId', (digitUser as any)?.aadhaarHash?.slice(0, 12).toUpperCase() || 'CITIZEN-IDENTITY-VERIFIED');
+        params.set('date', new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }));
+        
+        router.push(`/vote/certificate?${params.toString()}`);
       }, 7000); // 7 seconds matching real VVPAT display time
       return () => clearTimeout(timer);
     }
