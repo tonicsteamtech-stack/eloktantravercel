@@ -290,7 +290,7 @@ export default function SecureVoteGateway() {
 
         <div className="bg-[#0d1117] border border-white/5 rounded-3xl p-6 flex justify-between relative overflow-hidden">
           <div className="absolute top-1/2 left-0 right-0 h-px bg-white/5 -translate-y-1/2" />
-          {[1, 2, 3, 4].map((s: number) => (
+          {[1, 2, 3, 4].map(s => (
             <div key={s} className={`relative z-10 w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center font-black transition-all duration-500 ${step >= s ? 'bg-primary text-white shadow-[0_0_20px_rgba(255,107,0,0.4)] scale-110' : 'bg-white/5 text-gray-700'
               }`}>
               {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
@@ -363,7 +363,7 @@ export default function SecureVoteGateway() {
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary transition-all font-bold appearance-none"
                   >
                     <option value="" className="bg-black text-gray-500">Select Region</option>
-                    {constituencies?.map((c: any) => (
+                    {constituencies?.map((c) => (
                       <option key={c.id || c._id || c.name} value={c.name} className="bg-black">
                         {c.name}
                       </option>

@@ -19,10 +19,10 @@ export async function GET(request: Request) {
     if (userId) query = { id: userId };
 
     const docs = await db.collection('documents').find(query).toArray();
-    
+
     // 🛡️ DECRYPTION LAYER: Decrypting cloud blobs for localized browser previews
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       documents: docs.map((d: any) => ({
         id: d.id,
         name: d.name,
