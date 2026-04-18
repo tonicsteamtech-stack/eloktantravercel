@@ -1,9 +1,0 @@
-{
-  "name": "@eloktantra/utils",
-  "version": "1.0.0",
-  "main": "index.ts",
-  "private": true,
-  "dependencies": {
-    "fastify": "^4.29.1"
-  }
-}
