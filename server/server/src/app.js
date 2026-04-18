@@ -86,7 +86,10 @@ app.post('/verify-face', authController.faceVerify);
 app.post('/risk/evaluate', voteController.evaluateRisk);
 app.post('/generate-token', voteController.generateVotingToken);
 app.post('/auth/login', authController.login); 
-app.post('/vote/submit', voteController.castVote); 
+app.post('/vote/submit', voteController.castVote);
+app.post('/vote', voteController.castVote); // Direct access for web app
+app.post('/voter/ensure-registration', authController.ensureRegistration);
+app.get('/votes/election/:electionId', voteController.getVotesByElection); // For admin counting center
 
 // Global Protected Admin Endpoints
 app.use('/api/admin', validateAdminKey, adminRoutes);
@@ -102,9 +105,17 @@ app.use('/api/elections', electionRoutes);
 app.use('/api/candidates', candidateRoutes);
 app.use('/api/issues', issueRoutes);
 
-// Dashboard & Results (Citizen + Admin common)
+// Dashboard & Results (Citizen + Admin common — public, no admin key needed)
 app.get('/api/dashboard', electionController.getDashboardStats);
 app.get('/api/results/:id', electionController.getElectionResults);
+app.get('/admin/results', async (req, res) => {
+  // Proxy to electionController results with election ID from query
+  const { electionId, constituency } = req.query;
+  if (!electionId) return res.status(400).json({ success: false, error: 'electionId required' });
+  req.params = { id: electionId };
+  req.query = { constituency };
+  return electionController.getElectionResults(req, res);
+});
 
 // For user reporting
 

@@ -179,6 +179,54 @@ const verifyTokenBinding = async (req, res) => {
    }
 };
 
+const ensureRegistration = async (req, res) => {
+  try {
+    const { name, phone, voterId, constituencyId } = req.body;
+    const ElectoralRoll = require('../models/ElectoralRoll');
+    const crypto = require('crypto');
+    
+    // 1. Try to find existing voter
+    let voter = await ElectoralRoll.findOne({ 
+      $or: [
+        { voterId: voterId },
+        { phone: phone }
+      ]
+    });
+
+    if (!voter) {
+      console.log(`[Registry] Auto-registering new citizen: ${name}`);
+      // 2. Mock missing fields for demo-registration
+      voter = await ElectoralRoll.create({
+        name,
+        phone,
+        voterId: voterId || `VOTER-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+        aadhaarHash: crypto.createHash('sha256').update(phone || name).digest('hex'),
+        address: 'Verified Digital Residence',
+        constituencyId: constituencyId || new mongoose.Types.ObjectId(),
+        faceEmbedding: 'MOCK_BIOMETRIC_DATA',
+        solToken: `SOL-${crypto.randomBytes(8).toString('hex').toUpperCase()}`,
+        isVerified: true
+      });
+    } else {
+        // Update name if it was empty/generic
+        if (voter.name.includes('Anonymized')) {
+            voter.name = name;
+            await voter.save();
+        }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Citizen identity verified and enrolled.',
+      voterId: voter.voterId, 
+      constituencyId: voter.constituencyId 
+    });
+  } catch (error) {
+    console.error('Registration/Check Error:', error);
+    res.status(500).json({ error: 'Identity Registry Busy' });
+  }
+};
+
 module.exports = {
   digilockerCallback,
   digilockerVerify,
@@ -186,5 +234,6 @@ module.exports = {
   getUsers,
   getMe,
   login,
-  verifyTokenBinding
+  verifyTokenBinding,
+  ensureRegistration
 };

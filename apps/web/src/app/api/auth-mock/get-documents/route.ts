@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     // 🛡️ DECRYPTION LAYER: Decrypting cloud blobs for localized browser previews
     return NextResponse.json({
       success: true,
-      documents: docs.map((d: any) => ({
+      documents: docs.map(d => ({
         id: d.id,
         name: d.name,
         type: d.type,

@@ -97,7 +97,7 @@ export default function ManifestosPage() {
                   className="gov-input appearance-none pr-10"
                 >
                   <option value="">Choose an Election Cycle</option>
-                  {elections.map((el: any) => <option key={el._id} value={el._id}>{el.title}</option>)}
+                  {elections.map(el => <option key={el._id} value={el._id}>{el.title}</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
@@ -115,7 +115,7 @@ export default function ManifestosPage() {
                   className="gov-input appearance-none pr-10"
                 >
                   <option value="">{selectedElection ? 'Select Local Region' : 'Await Election Selection'}</option>
-                  {constituencies.map((c: any) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  {constituencies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>

@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const electionRepository = require('../repositories/electionRepository');
 
 const getActiveElection = async (req, res) => {
@@ -124,6 +125,7 @@ const updateElection = async (req, res) => {
 const getElectionResults = async (req, res) => {
   try {
     const { id } = req.params;
+    const { constituency } = req.query;
     const Election = require('../models/Election');
     const Vote = require('../models/Vote');
     const Candidate = require('../models/Candidate');
@@ -131,23 +133,70 @@ const getElectionResults = async (req, res) => {
     const election = await Election.findById(id);
     if (!election) return res.status(404).json({ success: false, error: 'Election not found' });
 
+    // Build match query — support both ObjectId and string electionId
+    const matchQuery = {};
+    try {
+      matchQuery.electionId = new mongoose.Types.ObjectId(id);
+    } catch (e) {
+      matchQuery.electionId = id;
+    }
+    if (constituency) matchQuery.constituencyId = constituency;
+
     // Aggregate real votes from MongoDB
     const voteCounts = await Vote.aggregate([
-      { $match: { electionId: new mongoose.Types.ObjectId(id) } },
+      { $match: matchQuery },
       { $group: { _id: '$candidateId', count: { $sum: 1 } } }
     ]);
 
-    const candidates = await Candidate.find({ election_id: id });
+    // Also try string-based match if ObjectId match returned nothing
+    let finalCounts = voteCounts;
+    if (voteCounts.length === 0) {
+      const stringMatch = { electionId: id };
+      if (constituency) stringMatch.constituencyId = constituency;
+      finalCounts = await Vote.aggregate([
+        { $match: stringMatch },
+        { $group: { _id: '$candidateId', count: { $sum: 1 } } }
+      ]);
+    }
 
+    // Fetch candidates — try multiple field name patterns
+    let candidates = await Candidate.find({ election_id: id });
+    if (candidates.length === 0) {
+      candidates = await Candidate.find({ electionId: id });
+    }
+    if (candidates.length === 0) {
+      candidates = await Candidate.find({});
+    }
     const results = candidates.map(c => {
-      const voteData = voteCounts.find(v => v._id.toString() === c._id.toString());
+      const voteData = finalCounts.find(v => v._id && v._id.toString() === c._id.toString());
       return {
         candidateId: c._id,
+        candidate_id: c._id,
         candidateName: c.name,
-        party: c.party_name || 'Independent',
-        votes: voteData ? voteData.count : 0
+        candidate_name: c.name,
+        party: c.party || c.party_name || 'Independent',
+        party_name: c.party || c.party_name || 'Independent',
+        votes: voteData ? voteData.count : 0,
+        vote_count: voteData ? voteData.count : 0
       };
     });
+
+    // Also add any votes for candidates NOT in our Candidate collection
+    for (const vc of finalCounts) {
+      const exists = results.find(r => r.candidateId.toString() === vc._id?.toString());
+      if (!exists && vc._id) {
+        results.push({
+          candidateId: vc._id,
+          candidate_id: vc._id,
+          candidateName: `Candidate ${vc._id.toString().slice(-6)}`,
+          candidate_name: `Candidate ${vc._id.toString().slice(-6)}`,
+          party: 'Unknown',
+          party_name: 'Unknown',
+          votes: vc.count,
+          vote_count: vc.count
+        });
+      }
+    }
 
     res.json({
       success: true,
@@ -226,6 +275,16 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+
+const deleteElection = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await electionRepository.delete(id);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete election' });
+  }
+};
 
 module.exports = {
   getActiveElection,

@@ -22,6 +22,9 @@ declare global {
   }
 }
 
+// 📡 Shared Direct Sync Channel
+const syncChannel = typeof window !== 'undefined' ? new BroadcastChannel('eloktantra_voting_sync') : null;
+
 function VotingContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -676,6 +679,17 @@ function VotingContent() {
         setShowVVPAT(true); // TRIGGER VVPAT ANIMATION
         playPrinterSound(); // PLAY PHYSICAL FEEDBACK
 
+        // 📡 DIRECT FRONTEND BROADCAST
+        if (syncChannel) {
+           console.log("[Ballot] Broadcasting direct sync signal...");
+           syncChannel.postMessage({
+              type: 'VOTE_CASTED',
+              candidateId: candidateId,
+              candidateName: candidates.find(c => (c.id === candidateId || c._id === candidateId))?.name || 'Voter Choice',
+              timestamp: Date.now()
+           });
+        }
+
         // Audit proof capture (Optional download)
         const url = URL.createObjectURL(videoBlob);
         const a = document.createElement("a");
@@ -764,6 +778,26 @@ function VotingContent() {
       {/* 🔐 Permission Consent Overlay */}
       {!isPermissionGranted && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-2xl">
+          {/* 🧪 Developer Mode: Mock Sync Tester */}
+          <div className="absolute top-8 right-8 z-[300]">
+             <button 
+                onClick={() => {
+                   if (syncChannel) {
+                      const mockCandidate = candidates[0] || { id: 'mock', name: 'DEMO CANDIDATE' };
+                      syncChannel.postMessage({
+                         type: 'VOTE_CASTED',
+                         candidateId: mockCandidate.id || (mockCandidate as any)._id,
+                         candidateName: mockCandidate.name,
+                         isMock: true
+                      });
+                      alert("📡 Direct broadcast signal sent to Admin Portal!");
+                   }
+                }}
+                className="px-4 py-2 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-orange-500 hover:text-white transition-all"
+             >
+                Test Direct Sync Connection
+             </button>
+          </div>
           <div className="max-w-xl w-full p-12 text-center space-y-8 animate-in zoom-in duration-500">
             <div className={`relative mx-auto w-64 h-48 rounded-3xl overflow-hidden border-2 shadow-2xl bg-black group transition-all duration-700 ${faceAligned ? 'border-green-500' : 'border-orange-500/50'
               }`}>
