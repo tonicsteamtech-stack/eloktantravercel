@@ -7,6 +7,7 @@ import axios from "axios"
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSecureVotingSession } from '@/hooks/useSecureVotingSession';
 import { useElection, generateVotingToken, castVote } from '@/lib/api/voting';
+import { apiClient } from '@/lib/api/client';
 import { useDigiLockerStore } from '@/lib/store/digilocker-store';
 
 import { getStoredUser } from '@/lib/api/auth';
@@ -50,6 +51,50 @@ function VotingContent() {
   }, [router, searchParams]);
 
   const { data: election, isLoading: isLoadingElection } = useElection(electionId);
+  const [candidates, setCandidates] = useState<any[]>([]);
+
+  // 🛡️ SENIOR DEV FIX: Real-time Candidate Sync
+  // Directly fetches from the same source as the Admin Portal (localhost:3001)
+  useEffect(() => {
+    const fetchRealCandidates = async () => {
+      try {
+        console.log(`[Ballot] Syncing candidates for election: ${electionId}`);
+        const { data } = await apiClient.get(`/candidates`); // Get all candidates from synchronized ledger
+        const allCandidates = Array.isArray(data) ? data : (data.candidates || data.data || []);
+        
+        // 🛡️ Filter candidates by multiple safety layers
+        const filtered = allCandidates.filter((c: any) => {
+          const matchId = c.electionId === electionId || c.election_id === electionId;
+          const matchTitle = (c.election || '').trim().toLowerCase() === (election as any)?.title?.trim().toLowerCase();
+          // Emergency Fallback: Match by name keywords if IDs are missing (e.g. "bangal election")
+          const isBangalMatch = (c.election || '').toLowerCase().includes('bangal') && (election as any)?.title?.toLowerCase().includes('bangal');
+          return matchId || matchTitle || isBangalMatch;
+        });
+
+        if (filtered.length > 0) {
+          console.log(`[Ballot] Successfully synced ${filtered.length} real candidates.`);
+          setCandidates(filtered.map((c: any) => ({
+            id: c.id || c._id,
+            name: c.name,
+            party: c.party || c.party_name || 'Independent',
+            constituency: c.constituency || 'National'
+          })));
+        } else if (election?.candidates && election.candidates.length > 0) {
+          setCandidates(election.candidates);
+        }
+      } catch (err) {
+        console.error("[Ballot] Candidate sync failed:", err);
+        if (election?.candidates) setCandidates(election.candidates);
+      }
+    };
+
+    if (electionId && electionId !== 'DEMO_ELECTION') {
+      fetchRealCandidates();
+    } else if (electionId === 'DEMO_ELECTION') {
+      setCandidates(election?.candidates || []);
+    }
+  }, [electionId, election]);
+
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [blinking, setBlinking] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -534,7 +579,7 @@ function VotingContent() {
         completeSession();
         unlock();
         alert(`Vote successfully recorded and verified.\n\nTransaction Hash: ${voteHash}\nViolations: ${violations}\n\nThank you for participating in a secure, transparent election.`);
-        
+
         // Redirect to Certificate of Acknowledgement
         const params = new URLSearchParams();
         params.set('election', election?.title || election?.name || 'Election Unit');
@@ -542,25 +587,30 @@ function VotingContent() {
         params.set('hash', voteHash);
         params.set('voterId', (digitUser as any)?.aadhaarHash?.slice(0, 12).toUpperCase() || 'CITIZEN-IDENTITY-VERIFIED');
         params.set('date', new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }));
-        
+
         router.push(`/vote/certificate?${params.toString()}`);
       }, 7000); // 7 seconds matching real VVPAT display time
       return () => clearTimeout(timer);
     }
   }, [showVVPAT, voteHash, violations, router, completeSession, unlock]);
 
-  if (isLoadingElection) {
+  // ⚖️ RESILIENCE LAYER: We load the UI if we have candidates OR if election metadata is ready.
+  // This prevents getting stuck on "Loading" if one of the registries is slow.
+  const isSyncing = isLoadingElection && candidates.length === 0;
+
+  if (isSyncing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-gray-400 font-black uppercase tracking-widest text-xs">Loading Secure Ballot...</p>
+          <p className="text-gray-400 font-black uppercase tracking-widest text-xs tracking-[0.3em]">Syncing Secure Ballot...</p>
         </div>
       </div>
     );
   }
 
-  if (!election) {
+  // If no election found AND no candidates synced, THEN show error.
+  if (!election && candidates.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center space-y-4">
@@ -572,13 +622,8 @@ function VotingContent() {
   }
 
   // ─── ⚖️ HIERARCHICAL CANDIDATE FILTERING ─────────────────
-  const allCandidates = (election as any)?.candidates || [];
-  const candidates = allCandidates.filter((c: any) =>
-    !digitUser?.constituencyId ||
-    c.constituencyId === digitUser.constituencyId ||
-    c.constituencyId === (election as any).constituencyId ||
-    isDevMode // Show all in dev mode
-  );
+  // Candidate list is now managed by the real-time sync useEffect at the top of the component
+  // to ensure synchronization with the Admin Portal (localhost:3001).
 
   const getElectionYear = () => {
     if (!election?.start_time) return new Date().getFullYear();
@@ -681,13 +726,13 @@ function VotingContent() {
 
         // 📡 DIRECT FRONTEND BROADCAST
         if (syncChannel) {
-           console.log("[Ballot] Broadcasting direct sync signal...");
-           syncChannel.postMessage({
-              type: 'VOTE_CASTED',
-              candidateId: candidateId,
-              candidateName: candidates.find(c => (c.id === candidateId || c._id === candidateId))?.name || 'Voter Choice',
-              timestamp: Date.now()
-           });
+          console.log("[Ballot] Broadcasting direct sync signal...");
+          syncChannel.postMessage({
+            type: 'VOTE_CASTED',
+            candidateId: candidateId,
+            candidateName: candidates.find(c => (c.id === candidateId || c._id === candidateId))?.name || 'Voter Choice',
+            timestamp: Date.now()
+          });
         }
 
         // Audit proof capture (Optional download)
@@ -780,23 +825,23 @@ function VotingContent() {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-2xl">
           {/* 🧪 Developer Mode: Mock Sync Tester */}
           <div className="absolute top-8 right-8 z-[300]">
-             <button 
-                onClick={() => {
-                   if (syncChannel) {
-                      const mockCandidate = candidates[0] || { id: 'mock', name: 'DEMO CANDIDATE' };
-                      syncChannel.postMessage({
-                         type: 'VOTE_CASTED',
-                         candidateId: mockCandidate.id || (mockCandidate as any)._id,
-                         candidateName: mockCandidate.name,
-                         isMock: true
-                      });
-                      alert("📡 Direct broadcast signal sent to Admin Portal!");
-                   }
-                }}
-                className="px-4 py-2 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-orange-500 hover:text-white transition-all"
-             >
-                Test Direct Sync Connection
-             </button>
+            <button
+              onClick={() => {
+                if (syncChannel) {
+                  const mockCandidate = candidates[0] || { id: 'mock', name: 'DEMO CANDIDATE' };
+                  syncChannel.postMessage({
+                    type: 'VOTE_CASTED',
+                    candidateId: mockCandidate.id || (mockCandidate as any)._id,
+                    candidateName: mockCandidate.name,
+                    isMock: true
+                  });
+                  alert("📡 Direct broadcast signal sent to Admin Portal!");
+                }
+              }}
+              className="px-4 py-2 bg-orange-500/10 border border-orange-500/30 text-orange-500 text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-orange-500 hover:text-white transition-all"
+            >
+              Test Direct Sync Connection
+            </button>
           </div>
           <div className="max-w-xl w-full p-12 text-center space-y-8 animate-in zoom-in duration-500">
             <div className={`relative mx-auto w-64 h-48 rounded-3xl overflow-hidden border-2 shadow-2xl bg-black group transition-all duration-700 ${faceAligned ? 'border-green-500' : 'border-orange-500/50'

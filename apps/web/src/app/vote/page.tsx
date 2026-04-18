@@ -99,14 +99,14 @@ export default function SecureVoteGateway() {
       // 🛡️ SENIOR DEV SECURITY LAYER: Match name against existing Electoral Roll
       // We fetch from the same source of truth as the Admin Portal
       const electionId = searchParams?.get('id') || '93e1bf8d-cde5-4c19-8bde-34d4c9581730';
-      
+
       // Use the centralized apiClient for reliability and proper proxying
       const res = await apiClient.get(`/admin/electoral-roll?electionId=${electionId}`);
       const data = res.data;
 
       // Handle various response patterns (voters, data, or raw array)
       const voterList = Array.isArray(data) ? data : (data.voters || data.data || []);
-      
+
       console.log(`[Identity] Fetched ${voterList.length} voters for check.`);
 
       // Case-insensitive exact match

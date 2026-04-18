@@ -9,10 +9,10 @@ const ACTUAL_BACKEND = getBackendUrl();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Proxy the request to the real backend
     const res = await axios.get(`${ACTUAL_BACKEND}/api/elections/${id}`, {
