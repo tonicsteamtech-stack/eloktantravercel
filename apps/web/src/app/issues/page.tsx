@@ -187,7 +187,7 @@ export default function IssuesHierarchyPage() {
                 className="gov-input"
               >
                 {isLoadingElections ? <option>Loading Elections...</option> : null}
-                {elections.map((e: any) => <option key={e.id} value={e.id}>{e.title}</option>)}
+                {elections.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
               </select>
             </div>
             <div className={`flex-1 transition-opacity ${!selectedElection ? 'opacity-40 pointer-events-none' : ''}`}>
@@ -201,7 +201,7 @@ export default function IssuesHierarchyPage() {
                 className="gov-input"
               >
                 <option value="">Select Constituency...</option>
-                {constituencies.map((c: any) => <option key={c._id} value={c._id}>{c.name} ({c.state})</option>)}
+                {constituencies.map(c => <option key={c._id} value={c._id}>{c.name} ({c.state})</option>)}
               </select>
             </div>
           </div>
@@ -218,7 +218,7 @@ export default function IssuesHierarchyPage() {
           </div>
         ) : isLoadingIssues ? (
           <div className="space-y-4">
-            {[1, 2, 3].map((i: number) => <div key={i} className="h-28 bg-white border border-gray-200 rounded animate-pulse" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-28 bg-white border border-gray-200 rounded animate-pulse" />)}
           </div>
         ) : issues.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded p-12 text-center" style={{ borderTop: '3px solid #138808' }}>
