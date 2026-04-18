@@ -30,7 +30,7 @@ export default function PromisesPage() {
     if (statusFilter) params.set('status', statusFilter);
     fetch(`/api/promises?${params}`)
       .then(r => r.json())
-      .then(d => setPromises(d.promises || []))
+      .then((d: { promises?: Promise[] }) => setPromises(d.promises || []))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [statusFilter]);

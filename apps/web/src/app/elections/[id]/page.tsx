@@ -9,8 +9,8 @@ interface Candidate {
   name: string;
   party: string;
   constituency: string;
-  criminalCases: number;
-  netWorth: number;
+  criminal_cases: number;
+  net_worth: string | number;
 }
 
 export default function CandidatesPage() {
@@ -21,7 +21,7 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParty, setSelectedParty] = useState('All');
-  const [sortBy, setSortBy] = useState<'name' | 'netWorth' | 'criminalCases'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'net_worth' | 'criminal_cases'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [error, setError] = useState<string | null>(null);
 
@@ -138,8 +138,8 @@ export default function CandidatesPage() {
                 className="bg-secondary/50 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
                 <option value="name">Name</option>
-                <option value="netWorth">Net Worth</option>
-                <option value="criminalCases">Criminal Cases</option>
+                <option value="net_worth">Net Worth</option>
+                <option value="criminal_cases">Criminal Cases</option>
             </select>
             
             <button 
@@ -210,13 +210,13 @@ export default function CandidatesPage() {
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Declared Assets</div>
                       <div className="text-base md:text-lg font-bold text-gray-200">
-                        ₹{(candidate.netWorth / 10000000).toFixed(2)}Cr
+                        ₹{(Number(candidate.net_worth || 0) / 10000000).toFixed(2)}Cr
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Criminal Cases</div>
-                      <div className={`text-base md:text-lg font-bold ${candidate.criminalCases > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                        {candidate.criminalCases}
+                      <div className={`text-base md:text-lg font-bold ${(candidate.criminal_cases || 0) > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        {candidate.criminal_cases || 0}
                       </div>
                     </div>
                   </div>

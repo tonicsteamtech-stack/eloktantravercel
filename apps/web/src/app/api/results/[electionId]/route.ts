@@ -11,10 +11,10 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://backend-elokantr
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { electionId: string } }
+  { params }: { params: Promise<{ electionId: string }> }
 ) {
   try {
-    const { electionId } = params;
+    const { electionId } = await params;
     const res = await axios.get(`${BACKEND_URL}/api/results/${electionId}`, {
       timeout: 90000 // 90s timeout (Extreme for Render cold-starts)
     });
