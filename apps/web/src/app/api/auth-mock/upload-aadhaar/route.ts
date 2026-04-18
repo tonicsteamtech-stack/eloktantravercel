@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import getClient from '@/lib/mongodb';
 import { encryptVault } from '@/lib/crypto';
 
 // "ENCRYPTED VAULT" SAVE ENGINE 🛡️🔐🕵️‍♂️
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const encryptedContent = encryptVault(base64File);
 
     console.log('DEBUG: Checking Dynamic Client Status...');
-    const client = await clientPromise;
+    const client = await getClient();
     console.log('DEBUG: Client Result:', client ? 'ACTIVE' : 'NULL');
 
     if (!client) {
