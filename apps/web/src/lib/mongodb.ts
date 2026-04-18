@@ -13,6 +13,7 @@ const mockDb = {
       limit: () => ({ toArray: async () => [] }),
     }),
     updateOne: async () => ({ acknowledged: true }),
+    updateMany: async () => ({ acknowledged: true }),
     deleteOne: async () => ({ acknowledged: true }),
   }),
 };
