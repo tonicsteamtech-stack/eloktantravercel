@@ -2,11 +2,14 @@
 
 import { useConstituencyCandidates } from '@/lib/api/candidates';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
-export default function ConstituencyPage({ params }: { params: { id: string } }) {
-  const { data: candidates, isLoading, isError } = useConstituencyCandidates(params.id);
+export default function ConstituencyPage() {
+  const params = useParams();
+  const id = params?.id as string;
+  const { data: candidates, isLoading, isError } = useConstituencyCandidates(id);
 
-  if (isLoading) return <div className="p-8 text-center text-gray-500 min-h-screen">Loading candidates for {params.id}...</div>;
+  if (isLoading) return <div className="p-8 text-center text-gray-500 min-h-screen">Loading candidates for {id}...</div>;
   if (isError) return <div className="p-8 text-center text-red-500 min-h-screen">Failed to load candidates for this constituency.</div>;
 
   return (
@@ -17,7 +20,7 @@ export default function ConstituencyPage({ params }: { params: { id: string } })
         </Link>
         <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
           Constituency
-          <span className="text-blue-600 bg-blue-100 px-4 py-1 rounded-full text-3xl font-bold">{params.id}</span>
+          <span className="text-blue-600 bg-blue-100 px-4 py-1 rounded-full text-3xl font-bold">{id}</span>
         </h1>
         <p className="text-lg text-gray-600 mt-4 leading-relaxed max-w-2xl">
           Review all actively contesting candidates in this region. Transparency in local representation is vital for democracy.
@@ -55,7 +58,7 @@ export default function ConstituencyPage({ params }: { params: { id: string } })
         {candidates?.length === 0 && (
           <div className="col-span-full text-center py-16 bg-white rounded-xl border border-gray-200 shadow-sm text-gray-500">
             <h3 className="text-xl font-medium mb-2">No Candidates Found</h3>
-            <p>We do not have any candidate records for the constituency &quot;{params.id}&quot; yet.</p>
+            <p>We do not have any candidate records for the constituency &quot;{id}&quot; yet.</p>
           </div>
         )}
       </div>

@@ -9,10 +9,10 @@ const ACTUAL_BACKEND = getBackendUrl();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     // Proxy the request to the real backend
     const res = await axios.get(`${ACTUAL_BACKEND}/api/elections/${id}`, {
@@ -45,7 +45,7 @@ export async function GET(
     });
 
   } catch (err: any) {
-    console.error(`Election [${params.id}] fetch failed:`, err.message);
+    console.error(`Election [${id}] fetch failed:`, err.message);
     
     // Check if it's a 404 from backend or a connection error
     const status = err.response?.status || 502;
