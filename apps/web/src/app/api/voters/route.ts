@@ -11,14 +11,14 @@ function parseCSV(content: string) {
   if (lines.length < 2) return [];
   // headers: name,constituency,phone,voter_id
   return lines.slice(1).map((line, idx) => {
-    const [name, constituency, phone, voter_id] = line.split(',').map((s: string) => s.trim());
+    const [name, constituency, phone, voter_id] = line.split(',').map(s => s.trim());
     return { id: idx + 1, name, constituency, phone, voter_id };
   });
 }
 
 function serializeCSV(voters: any[]) {
   const header = 'name,constituency,phone,voter_id';
-  const rows = voters.map((v: any) => `${v.name},${v.constituency},${v.phone},${v.voter_id}`);
+  const rows = voters.map(v => `${v.name},${v.constituency},${v.phone},${v.voter_id}`);
   return [header, ...rows].join('\n');
 }
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     const voters = readVoters();
     // Check duplicate voter_id
-    if (voters.some((v: any) => v.voter_id === voter_id.trim())) {
+    if (voters.some(v => v.voter_id === voter_id.trim())) {
       return NextResponse.json({ success: false, error: 'Voter ID already exists.' }, { status: 409 });
     }
 
@@ -76,7 +76,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const voters = readVoters();
-    const idx = voters.findIndex((v: any) => v.voter_id === voter_id);
+    const idx = voters.findIndex(v => v.voter_id === voter_id);
     if (idx === -1) {
       return NextResponse.json({ success: false, error: 'Voter not found.' }, { status: 404 });
     }
@@ -104,11 +104,11 @@ export async function DELETE(req: NextRequest) {
     }
 
     let voters = readVoters();
-    const exists = voters.some((v: any) => v.voter_id === voter_id);
+    const exists = voters.some(v => v.voter_id === voter_id);
     if (!exists) {
       return NextResponse.json({ success: false, error: 'Voter not found.' }, { status: 404 });
     }
-    voters = voters.filter((v: any) => v.voter_id !== voter_id);
+    voters = voters.filter(v => v.voter_id !== voter_id);
     writeVoters(voters);
 
     return NextResponse.json({ success: true });

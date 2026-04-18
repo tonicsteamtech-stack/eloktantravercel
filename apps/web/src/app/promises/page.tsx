@@ -16,8 +16,8 @@ interface Promise {
 const STATUS_COLORS: Record<string, string> = {
   NOT_STARTED: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
   IN_PROGRESS: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  COMPLETED:   'bg-green-500/10 text-green-400 border-green-500/20',
-  BROKEN:      'bg-red-500/10 text-red-400 border-red-500/20',
+  COMPLETED: 'bg-green-500/10 text-green-400 border-green-500/20',
+  BROKEN: 'bg-red-500/10 text-red-400 border-red-500/20',
 };
 
 export default function PromisesPage() {
@@ -53,15 +53,14 @@ export default function PromisesPage() {
 
       {/* Filter */}
       <div className="flex flex-wrap gap-3 mb-8">
-        {['', 'NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'BROKEN'].map((s: string) => (
+        {['', 'NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'BROKEN'].map(s => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${
-              statusFilter === s
+            className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${statusFilter === s
                 ? 'bg-primary text-white border-primary'
                 : 'border-border text-muted hover:border-primary/30 hover:text-foreground'
-            }`}
+              }`}
           >
             {s === '' ? 'All' : s.replace('_', ' ')}
           </button>
@@ -80,7 +79,7 @@ export default function PromisesPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          {promises.map((p: Promise) => (
+          {promises.map(p => (
             <div key={p.id} className="glass-card p-6 md:p-8 hover:border-primary/20 transition-all group">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4">
                 <div>
