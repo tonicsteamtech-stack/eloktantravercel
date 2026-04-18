@@ -62,8 +62,8 @@ export const fetchElectionById = async (id: string): Promise<ElectionDetail> => 
   try {
     const { data } = await apiClient.get(`/elections/${id}`);
     const raw = data.election || data.data || data;
-    
-    if (!raw || Object.keys(raw).length === 0) return DEMO_ELECTION;
+
+    if (!raw || Object.keys(raw).length === 0) throw new Error('Election entry is empty in the digital ledger');
 
     // Standardize the election object — map MongoDB _id to id
     const election: ElectionDetail = {
@@ -80,11 +80,21 @@ export const fetchElectionById = async (id: string): Promise<ElectionDetail> => 
         constituency: c.constituency || raw.constituency || 'General'
       })),
     };
-    
+
     return election;
-  } catch (error) {
-    console.warn('Failed to fetch election details from backend, using Demo Data:', error);
-    return DEMO_ELECTION;
+  } catch (error: any) {
+    console.error(`Election fetch failed [${id}]:`, error?.message);
+    // Return a minimal stub so the UI can render with direct-synced candidates
+    // The real candidates are loaded separately via /api/candidates
+    return {
+      id,
+      title: 'Active Election',
+      constituency: 'National',
+      start_time: new Date().toISOString(),
+      end_time: new Date(Date.now() + 86400000).toISOString(),
+      status: 'ACTIVE' as const,
+      candidates: []
+    };
   }
 };
 
