@@ -53,7 +53,7 @@ export default function PromisesPage() {
 
       {/* Filter */}
       <div className="flex flex-wrap gap-3 mb-8">
-        {['', 'NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'BROKEN'].map(s => (
+        {['', 'NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'BROKEN'].map((s: string) => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
@@ -80,7 +80,7 @@ export default function PromisesPage() {
         </div>
       ) : (
         <div className="space-y-5">
-          {promises.map(p => (
+          {promises.map((p: Promise) => (
             <div key={p.id} className="glass-card p-6 md:p-8 hover:border-primary/20 transition-all group">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4">
                 <div>

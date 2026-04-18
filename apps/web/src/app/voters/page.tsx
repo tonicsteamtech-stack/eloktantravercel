@@ -49,13 +49,13 @@ export default function VotersPage() {
 
   // ── Derived data ────────────────────────────────────────────────────────────
   const constituencies = useMemo(
-    () => Array.from(new Set(voters.map(v => v.constituency))).sort(),
+    () => Array.from(new Set(voters.map((v: Voter) => v.constituency))).sort(),
     [voters]
   );
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return voters.filter(v => {
+    return voters.filter((v: Voter) => {
       const matchSearch = !q ||
         v.name.toLowerCase().includes(q) ||
         v.voter_id.toLowerCase().includes(q) ||
@@ -146,7 +146,7 @@ export default function VotersPage() {
                 className="gov-input pl-9 appearance-none pr-8"
               >
                 <option value="">All Constituencies</option>
-                {constituencies.map(c => (
+                {constituencies.map((c: string) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

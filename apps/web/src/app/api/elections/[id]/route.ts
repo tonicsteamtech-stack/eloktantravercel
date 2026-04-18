@@ -11,9 +11,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   try {
-    const { id } = await params;
-    
     // Proxy the request to the real backend
     const res = await axios.get(`${ACTUAL_BACKEND}/api/elections/${id}`, {
       timeout: 30000
