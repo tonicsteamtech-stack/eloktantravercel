@@ -14,6 +14,7 @@ export async function GET(
   const { id } = await params;
 
   try {
+
     // Proxy the request to the real backend
     const res = await axios.get(`${ACTUAL_BACKEND}/api/elections/${id}`, {
       timeout: 30000
@@ -45,8 +46,8 @@ export async function GET(
     });
 
   } catch (err: any) {
-    console.error(`Election [${id}] fetch failed:`, err.message);
-    
+    console.error(`Election [${params.id}] fetch failed:`, err.message);
+
     // Check if it's a 404 from backend or a connection error
     const status = err.response?.status || 502;
     return NextResponse.json(

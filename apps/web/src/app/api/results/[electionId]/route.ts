@@ -13,10 +13,10 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ electionId: string }> }
 ) {
+  const { electionId } = await params;
   try {
-    const { electionId } = await params;
     const res = await axios.get(`${BACKEND_URL}/api/results/${electionId}`, {
-        timeout: 90000 // 90s timeout (Extreme for Render cold-starts)
+      timeout: 90000 // 90s timeout (Extreme for Render cold-starts)
     });
     return NextResponse.json(res.data);
   } catch (err: any) {

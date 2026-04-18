@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import getClient from '@/lib/mongodb';
 import { encryptVault } from '@/lib/crypto';
 
 // "ENCRYPTED VAULT" SAVE ENGINE 🛡️🔐🕵️‍♂️
@@ -7,24 +7,24 @@ import { encryptVault } from '@/lib/crypto';
 export async function POST(request: Request) {
   try {
     console.log('APP-API: Executing Encrypted Aadhaar Vault Persistence...');
-    
+
     const rawData = await request.arrayBuffer();
     const bodyText = new TextDecoder().decode(rawData);
     let body;
     try { body = JSON.parse(bodyText); } catch { return NextResponse.json({ error: 'Stream Mismatch' }, { status: 400 }); }
 
     const { file: base64File, fileType, docType } = body;
-    
+
     // 🎯 COMPULSORY FILENAME SETTING
     const fileName = 'aadhaar.jpg';
-    const namePrefix = 'Ramanuj (Verified)'; 
+    const namePrefix = 'Ramanuj (Verified)';
     const fileId = "doc-" + Math.random().toString(36).substring(2, 10);
 
     // 🛡️ ENCRYPTION SHIELD: AES-256 before Atlas Save
     const encryptedContent = encryptVault(base64File);
 
     console.log('DEBUG: Checking Dynamic Client Status...');
-    const client = await clientPromise;
+    const client = await getClient();
     console.log('DEBUG: Client Result:', client ? 'ACTIVE' : 'NULL');
 
     if (!client) {
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       file: fileName,
-      ownerName: namePrefix, 
+      ownerName: namePrefix,
       userId: fileId,
       mode: 'cloud-encrypted-verified'
     });
