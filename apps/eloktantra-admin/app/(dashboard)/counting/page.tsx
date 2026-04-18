@@ -38,6 +38,7 @@ export default function CountingPage() {
   const [results, setResults] = useState<TallyResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [totalVotes, setTotalVotes] = useState(0);
+  const [lastUpdatedId, setLastUpdatedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchElections();
@@ -45,8 +46,25 @@ export default function CountingPage() {
 
   const fetchElections = async () => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/elections`);
-      setElections(response.data);
+      const response = await axios.get(`${BACKEND_URL}/api/elections`);
+      const data = response.data;
+      // Backend returns { elections: [...], data: [...] } or a flat array
+      const list = data.elections || data.data || (Array.isArray(data) ? data : []);
+      
+      // Filter for active elections only — as a senior dev, we only want live contests in the counting center
+      const activeList = list.filter((e: any) => e.is_active === true);
+
+      const normalized = activeList.map((e: any) => ({
+        id: e._id || e.id,
+        title: e.title || e.name,
+        status: 'ACTIVE',
+        startDate: e.start_time || e.startDate || e.start_date,
+        endDate: e.end_time || e.endDate || e.end_date
+      }));
+      setElections(normalized);
+      if (normalized.length === 0) {
+        setError('No active elections found for counting. Activate an election in the Elections section first.');
+      }
     } catch (err) {
       console.error('Failed to fetch elections:', err);
       setError('Could not fetch elections from server.');
@@ -92,6 +110,79 @@ export default function CountingPage() {
       setIsLoading(false);
     }
   };
+
+  // 🔄 REAL-TIME POLLING EFFECT
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (phase === 3 && selectedConstituency && selectedElection) {
+      console.log(`[Admin] Starting real-time sync for ${selectedConstituency}`);
+      interval = setInterval(async () => {
+        try {
+          const response = await axios.get(`${BACKEND_URL}/admin/results`, {
+            params: { 
+              electionId: selectedElection.id,
+              constituency: selectedConstituency
+            }
+          });
+          const data = response.data;
+          if (data.success) {
+            const newResults = data.results.map((r: any) => ({
+                candidateId: r.candidate_id || 'UID',
+                candidateName: r.candidate_name,
+                party: r.party_name,
+                votes: parseInt(r.vote_count)
+            }));
+
+            // ⚡ Detect Changes for Animation
+            newResults.forEach((nr: any) => {
+               const oldR = results.find(r => r.candidateId === nr.candidateId);
+               if (oldR && nr.votes > oldR.votes) {
+                  setLastUpdatedId(nr.candidateId);
+                  setTimeout(() => setLastUpdatedId(null), 2000); // Reset highlight
+               }
+            });
+
+            setResults(newResults);
+            setTotalVotes(newResults.reduce((acc: number, r: any) => acc + r.votes, 0));
+          }
+        } catch (err) {
+          console.error('Polling sync failed:', err);
+        }
+      }, 3000); // 3-second sync pulse
+    }
+    return () => clearInterval(interval);
+  }, [phase, selectedConstituency, selectedElection, results]);
+
+  // 📡 DIRECT FRONTEND-TO-FRONTEND SYNC (BroadcastChannel)
+  useEffect(() => {
+    const channel = new BroadcastChannel('eloktantra_voting_sync');
+    
+    channel.onmessage = (event) => {
+      if (event.data && event.data.type === 'VOTE_CASTED') {
+        const { candidateId, candidateName } = event.data;
+        console.log(`[Admin] Received direct vote signal for: ${candidateName} (${candidateId})`);
+
+        // ⚡ Optimistic Update & Animation Trigger
+        setResults(prevResults => {
+          const newResults = prevResults.map(r => {
+            if (r.candidateId === candidateId || r.candidate_id === candidateId) {
+              return { ...r, votes: r.votes + 1, vote_count: (r.votes + 1).toString() };
+            }
+            return r;
+          });
+          
+          setTotalVotes(newResults.reduce((acc, r) => acc + r.votes, 0));
+          return newResults;
+        });
+
+        // Trigger the visual highlight
+        setLastUpdatedId(candidateId);
+        setTimeout(() => setLastUpdatedId(null), 3000);
+      }
+    };
+
+    return () => channel.close();
+  }, [phase]); 
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -213,14 +304,36 @@ export default function CountingPage() {
                      >
                        Change Constituency
                      </button>
+                      
+                      {/* Live Sync Badge */}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 animate-pulse">
+                          <div className="w-2 h-2 bg-white rounded-full" />
+                          <span className="text-[10px] font-black uppercase text-white tracking-widest">Live Sync Alpha</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-orange-500/10 px-4 py-1.5 rounded-xl border border-orange-500/20">
+                          <div className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-ping" />
+                          <span className="text-[8px] font-bold text-orange-500 uppercase tracking-tighter">Direct Frontend Link Active</span>
+                        </div>
+                      </div>
                    </div>
         
                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                      <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 p-8">
                        <div className="space-y-4">
-                         {results.map((result, idx) => (
-                           <div key={idx} className="group p-6 bg-gray-50 hover:bg-white hover:shadow-xl hover:shadow-gray-100 transition-all rounded-[30px] border border-transparent hover:border-gray-100">
-                             <div className="flex items-center gap-6">
+                          {results.map((result, idx) => (
+                            <div key={idx} className={`
+                                group p-6 transition-all duration-500 rounded-[30px] border relative overflow-hidden
+                                ${lastUpdatedId === result.candidateId ? 'bg-orange-50 border-orange-500 shadow-2xl scale-[1.02]' : 'bg-gray-50 border-transparent hover:bg-white hover:shadow-xl hover:shadow-gray-100 hover:border-gray-100'}
+                            `}>
+                               {lastUpdatedId === result.candidateId && (
+                                  <div className="absolute top-0 right-0 p-2">
+                                     <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-1 rounded-full animate-bounce">
+                                        +1 VOTE
+                                     </div>
+                                  </div>
+                               )}
+                               <div className="flex items-center gap-6">
                                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl ${idx === 0 ? 'bg-orange-500 text-white shadow-lg' : 'bg-white text-gray-400 border border-gray-100'}`}>
                                   {idx + 1}
                                 </div>
