@@ -1,6 +1,5 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "installCommand": "npm install --legacy-peer-deps",
-  "buildCommand": "npm run build --workspace=web"
+  "buildCommand": "pnpm run build --filter web"
 }
