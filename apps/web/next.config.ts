@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 import path from "node:path";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@eloktantra/types"],
   turbopack: {
     root: path.join(__dirname, "..", ".."),
   },
+  transpilePackages: ["@eloktantra/types"],
 };
 
 export default nextConfig;

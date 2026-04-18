@@ -1,41 +1,38 @@
-import mongoose from 'mongoose';
+/**
+ * MOCK MONGODB ADAPTER
+ * This file is a stub to satisfy import requirements in API routes 
+ * while the project transition to a real backend.
+ */
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/eloktantra';
+// Mock DB implementation
+const mockDb = {
+  collection: () => ({
+    insertOne: async () => ({ acknowledged: true, insertedId: 'mock-id' }),
+    find: () => ({
+      toArray: async () => [],
+      limit: () => ({ toArray: async () => [] }),
+    }),
+    updateOne: async () => ({ acknowledged: true }),
+    deleteOne: async () => ({ acknowledged: true }),
+  }),
+};
 
-let cached = (global as any).mongoose;
+const mockClient = {
+  db: () => mockDb,
+  connect: async () => mockClient,
+};
 
-if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+// Satisfies: import getClient from '@/lib/mongodb'
+export default async function getClient() {
+  console.warn('MONGODB_MOCK: Using mock client. No data will be persisted.');
+  return mockClient;
 }
 
+// Satisfies: import { connectDB } from '@/lib/mongodb'
 export async function connectDB() {
-  if (cached.conn) {
-    return cached.conn;
-  }
-
-  const opts = {
-    bufferCommands: false,
-  };
-
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      return mongoose;
-    });
-  }
-
-  try {
-    cached.conn = await cached.promise;
-    console.log('MongoDB: Connected via Mongoose');
-  } catch (e) {
-    console.warn('MongoDB: Connection failed, falling back to local database');
-    cached.promise = mongoose.connect('mongodb://127.0.0.1:27017/eloktantra', opts);
-    cached.conn = await cached.promise;
-  }
-
-  return cached.conn;
+  console.warn('MONGODB_MOCK: connectDB() called (Mocked).');
+  return true;
 }
 
-// clientPromise for native mongodb operations
-const clientPromise = connectDB().then((m) => m.connection.getClient());
-
-export default clientPromise;
+// Satisfies: import clientPromise from '@/lib/mongodb'
+export const clientPromise = Promise.resolve(mockClient);
