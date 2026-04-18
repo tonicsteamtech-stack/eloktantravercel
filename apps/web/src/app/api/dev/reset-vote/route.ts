@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
-import { User } from '@/models/ElectionModels';
 
 // 🛠️ DEVELOPER RESET API: POST /api/dev/reset-vote
 // Resets hasVoted for ALL users so voting can be tested repeatedly.
@@ -15,7 +15,9 @@ export async function POST() {
     // Try to reset via Mongoose
     const conn = await connectDB();
     if (conn) {
-      await User.updateMany({}, { $set: { hasVoted: false } });
+      // Use dynamic model retrieval to prevent 'missing module' build errors
+      const UserModel = mongoose.models.User || mongoose.model('User', new mongoose.Schema({ hasVoted: Boolean }, { strict: false }));
+      await UserModel.updateMany({}, { $set: { hasVoted: false } });
       console.log('🛠️ DEV: Reset hasVoted for all users');
     }
 
