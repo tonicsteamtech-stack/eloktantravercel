@@ -1,7 +1,7 @@
 {
   "name": "eloktantra-monorepo",
   "private": true,
-  "packageManager": "pnpm@9.12.3",
+  "packageManager": "pnpm@8.15.5",
   "workspaces": [
     "apps/*",
     "packages/*",
