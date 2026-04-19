@@ -28,7 +28,7 @@ export default function ConstituencyPage() {
       </header>
 
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-        {candidates?.map((candidate) => (
+        {candidates?.map((candidate: any) => (
           <Link href={`/candidates/${candidate.id}`} key={candidate.id} className="block group">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex justify-between items-center hover:shadow-lg transition-all duration-300 transform group-hover:-translate-y-1">
               <div>

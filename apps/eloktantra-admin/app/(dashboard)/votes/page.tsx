@@ -64,12 +64,9 @@ export default function VotesMonitorPage() {
   const columns = [
     { 
       header: 'Ballot Hash', 
-      render: (v: Vote) => {
-        const voteHash = v.vote_hash || v.blockchainHash || 'Unavailable';
-        return <span className="font-mono text-[10px] text-gray-400">{voteHash.substring(0, 20)}...</span>;
-      }
+      render: (v: Vote) => <span className="font-mono text-[10px] text-gray-400">{v.vote_hash.substring(0, 20)}...</span> 
     },
-    { header: 'Booth', render: (v: Vote) => <span className="font-bold text-gray-700">{v.booth_id || 'Unknown Booth'}</span> },
+    { header: 'Booth', render: (v: Vote) => <span className="font-bold text-gray-700">{v.booth_id}</span> },
     { 
       header: 'Status', 
       render: (v: Vote) => (
@@ -101,7 +98,7 @@ export default function VotesMonitorPage() {
         </a>
       ) : <span className="text-gray-300">---</span>
     },
-    { header: 'Timestamp', render: (v: Vote) => <span className="text-xs text-gray-400 font-medium">{v.submitted_at || v.createdAt || 'Pending'}</span> },
+    { header: 'Timestamp', render: (v: Vote) => <span className="text-xs text-gray-400 font-medium">{v.submitted_at}</span> },
   ];
 
   return (

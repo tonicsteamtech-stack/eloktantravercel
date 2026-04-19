@@ -84,17 +84,12 @@ export interface Voter {
 export interface Vote {
   id: string;
   _id?: string;
-  userId?: string;
-  candidateId?: string;
-  electionId?: string;
-  constituencyId?: string;
-  blockchainHash?: string;
-  createdAt?: string;
-  vote_hash?: string;
-  tx_hash?: string;
-  booth_id?: string;
-  status?: 'PENDING' | 'COMMITTED' | 'FAILED' | string;
-  submitted_at?: string;
+  userId: string;
+  candidateId: string;
+  electionId: string;
+  constituencyId: string;
+  blockchainHash: string;
+  createdAt: string;
 }
 
 export interface AuditLog {

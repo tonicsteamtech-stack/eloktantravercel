@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import {
-  Search, ChevronDown, User, Phone, MapPin, IdCard,
+  Search, ChevronDown, User, Phone, MapPin, Contact,
   ShieldCheck, X, Eye, FileText
 } from 'lucide-react';
 
@@ -286,7 +286,7 @@ export default function VotersPage() {
               </div>
               <div className="divide-y divide-gray-100">
                 {[
-                  { label: 'Voter ID', value: detailVoter.voter_id, Icon: IdCard },
+                  { label: 'Voter ID', value: detailVoter.voter_id, Icon: Contact },
                   { label: 'Constituency', value: detailVoter.constituency, Icon: MapPin },
                   { label: 'Phone Number', value: detailVoter.phone, Icon: Phone },
                 ].map(({ label, value, Icon }) => (
