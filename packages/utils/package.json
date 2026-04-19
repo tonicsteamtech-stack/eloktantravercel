@@ -2,7 +2,7 @@
   "name": "@eloktantra/utils",
   "version": "1.0.0",
   "main": "index.ts",
-  "private": true,
+  "private": false,
   "dependencies": {
     "fastify": "^4.29.1"
   }
