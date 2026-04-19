@@ -26,8 +26,8 @@
     "react-dom": "19.0.0",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.12",
-    "@eloktantra/types": "file:../../packages/types",
-    "@eloktantra/config": "file:../../packages/config"
+    "@eloktantra/types": "*",
+    "@eloktantra/config": "*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
