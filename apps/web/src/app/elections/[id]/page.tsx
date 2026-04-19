@@ -10,7 +10,8 @@ interface Candidate {
   party: string;
   constituency: string;
   criminal_cases: number;
-  net_worth: string | number;
+  net_worth?: string | number;
+  assets?: number;
 }
 
 export default function CandidatesPage() {
@@ -61,8 +62,8 @@ export default function CandidatesPage() {
 
   const sortedCandidates = useMemo(() => {
     return [...candidates].sort((a, b) => {
-      let valA = a[sortBy];
-      let valB = b[sortBy];
+      const valA = sortBy === 'net_worth' ? Number(a.net_worth ?? a.assets ?? 0) : a[sortBy];
+      const valB = sortBy === 'net_worth' ? Number(b.net_worth ?? b.assets ?? 0) : b[sortBy];
       
       if (typeof valA === 'string' && typeof valB === 'string') {
         const compare = valA.localeCompare(valB);
@@ -210,7 +211,7 @@ export default function CandidatesPage() {
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Declared Assets</div>
                       <div className="text-base md:text-lg font-bold text-gray-200">
-                        ₹{(Number(candidate.net_worth || 0) / 10000000).toFixed(2)}Cr
+                        ₹{(Number(candidate.net_worth ?? candidate.assets ?? 0) / 10000000).toFixed(2)}Cr
                       </div>
                     </div>
                     <div>

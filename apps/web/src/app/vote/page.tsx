@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as faceapi from 'face-api.js';
 import {
@@ -12,17 +12,23 @@ import {
 import { useDigiLockerStore } from '@/lib/store/digilocker-store';
 import { apiClient } from '@/lib/api/client';
 
-export default function SecureVoteGateway() {
-  const router = useRouter();
+// 🕵️‍♂️ MOVE PARAM LOGIC TO A SUB-COMPONENT
+function VoteParamsProvider({ children }: { children: (params: { isDevMode: boolean, electionId: string }) => React.ReactNode }) {
   const searchParams = useSearchParams();
   const isDevMode = searchParams?.get('dev') === 'true';
-  const { user: digitUser, isAuthenticated } = useDigiLockerStore();
+  const electionId = searchParams?.get('id') || '93e1bf8d-cde5-4c19-8bde-34d4c9581730';
+  
+  return <>{children({ isDevMode, electionId })}</>;
+}
 
-  const [step, setStep] = useState(1); // 1: Info Input, 2: OTP, 3: Face, 4: Ready
+function VoteContent() {
+  const router = useRouter();
+  const { user: digitUser } = useDigiLockerStore();
+
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Info State
   const [voterName, setVoterName] = useState('');
   const [voterPhone, setVoterPhone] = useState('');
   const [voterId, setVoterId] = useState('');
@@ -30,7 +36,6 @@ export default function SecureVoteGateway() {
   const [constituencies, setConstituencies] = useState<any[]>([]);
   const [otp, setOtp] = useState('');
 
-  // Model & State
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [challenge, setChallenge] = useState<'START' | 'SCANNING' | 'MATCHING' | 'DONE'>('START');
 
@@ -47,463 +52,193 @@ export default function SecureVoteGateway() {
         ]);
         setModelsLoaded(true);
       } catch (err: any) {
-        console.error("Failed to load Face API models", err);
-        setError("Face Models Error: " + (err?.message || String(err)));
+        console.error("Models Error:", err);
       }
     };
     loadModels();
 
-    let id = localStorage.getItem('eloktantra_device_id');
-    if (!id) {
-      id = `DEV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-      localStorage.setItem('eloktantra_device_id', id);
-    }
+    let id = localStorage.getItem('eloktantra_device_id') || `DEV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+    localStorage.setItem('eloktantra_device_id', id);
     setDeviceId(id);
 
-    // Fetch real constituencies from ledger
-    const fetchRegions = async () => {
-      try {
-        // Use the centralized apiClient (retries on 502/Timeout)
-        let res = await apiClient.get('/constituencies');
-
-        const data = res.data;
-        const list = Array.isArray(data) ? data : (data.data || data.constituencies || []);
-
-        console.log("Gateway Regions Loaded:", list);
-        if (list.length > 0) {
-          setConstituencies(list);
-          // High-reliability Fallback for current active elections (Matches your Admin Panel)
-          setConstituencies([
-            { name: 'A (Bengal)', id: 'a' },
-            { name: 'Brahmapur', id: 'brahmapur' },
-            { name: 'Varanasi', id: 'varanasi' },
-            { name: 'Thane', id: 'thane' }
-          ]);
-        }
-      } catch (err) {
-        console.error("Failed to fetch regions from Ledger. Using resilience fallback.", err);
-      }
-    };
-    fetchRegions();
+    apiClient.get('/constituencies').then(res => {
+      const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      setConstituencies([
+        { name: 'A (Bengal)', id: 'a' },
+        { name: 'Brahmapur', id: 'brahmapur' },
+        { name: 'Varanasi', id: 'varanasi' },
+        { name: 'Thane', id: 'thane' }
+      ]);
+    }).catch(() => {});
   }, []);
 
-  const handleManualLogin = async () => {
+  const handleManualLogin = async (electionId: string) => {
     if (!voterName || voterPhone.length < 10 || !voterId || !constituency) {
-      setError("Please fill in ALL fields: Name, Phone, Voter ID, and Constituency.");
+      setError("Please fill in ALL fields.");
       return;
     }
-    setError('');
     setLoading(true);
-
     try {
-      // 🛡️ SENIOR DEV SECURITY LAYER: Match name against existing Electoral Roll
-      // We fetch from the same source of truth as the Admin Portal
-      const electionId = searchParams?.get('id') || '93e1bf8d-cde5-4c19-8bde-34d4c9581730';
-      
-      // Use the centralized apiClient for reliability and proper proxying
       const res = await apiClient.get(`/admin/electoral-roll?electionId=${electionId}`);
-      const data = res.data;
-
-      // Handle various response patterns (voters, data, or raw array)
-      const voterList = Array.isArray(data) ? data : (data.voters || data.data || []);
-      
-      console.log(`[Identity] Fetched ${voterList.length} voters for check.`);
-
-      // Case-insensitive exact match
-      const matchingVoter = voterList.find((v: any) => {
-        const nameInRegistry = (v.name || v.fullname || v.voterName || '').trim().toLowerCase();
-        return nameInRegistry === voterName.trim().toLowerCase();
-      });
-
-      if (matchingVoter) {
-        console.log(`[Identity] Confirmed registration for: ${voterName}`);
-        // Persist matched voter details for session binding
-        localStorage.setItem('matched_voter', JSON.stringify(matchingVoter));
-        setStep(2); // Move to OTP
+      const voterList = Array.isArray(res.data) ? res.data : (res.data.voters || []);
+      const match = voterList.find((v: any) => (v.name || '').trim().toLowerCase() === voterName.trim().toLowerCase());
+      if (match) {
+        localStorage.setItem('matched_voter', JSON.stringify(match));
+        setStep(2);
       } else {
-        setError(`Identity mismatch: '${voterName}' not found in the official Electoral Roll for this election.`);
+        setError("Identity mismatch: Name not found in official roll.");
       }
-    } catch (err: any) {
-      console.error("Voter Name Verification Failed:", err);
-      setError("Security Engine: Identity Registry is currently unreachable. Please verify your connection or try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const [isResilient, setIsResilient] = useState(false);
-  const handleOTPVerify = async () => {
-    if (otp !== '123456' && !isDevMode) {
-      setError("Invalid OTP. In Dev Mode, use 123456.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await apiClient.post('/digilocker/verify', {
-        identifier: voterPhone,
-        voterId,
-        voterName,
-        constituency,
-        deviceId
-      });
-      const data = res.data;
-
-      if (!data.success) {
-        setError(data.error || "Registry access denied.");
-        return;
-      }
-
-      if (data.mode === 'resilience') {
-        setIsResilient(true);
-      }
-
-      // Carry session details strictly from backend
-      const verifiedUser = data.user;
-      const userWithInput = {
-        id: verifiedUser.id,
-        name: verifiedUser.name,
-        phone: verifiedUser.mobileNumber,
-        voterId: voterId,
-        constituency: constituency,
-        aadhaarHash: verifiedUser.aadhaarHash || verifiedUser.id
-      };
-      localStorage.setItem('voter_data', JSON.stringify(userWithInput));
-      setStep(3); // Face Scan
-    } catch (e: any) {
-      console.error("Voter Identity Bridge Failed:", e);
-      setError(e.message || "Identity Registry Offline. Please try again in 30 seconds.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) {
-      setError("Webcam access denied.");
-    }
-  };
-
-  const stopCamera = () => {
-    const stream = videoRef.current?.srcObject as MediaStream;
-    stream?.getTracks().forEach(track => track.stop());
-  };
-
-  useEffect(() => {
-    if (step === 3) startCamera();
-    else stopCamera();
-    return () => stopCamera();
-  }, [step]);
-
-  const handleDigiLockerStart = () => {
-    window.open('/digilocker/login?from=vote', '_blank');
-  };
-
-  const startFaceScan = () => {
-    setChallenge('SCANNING');
-    setError('');
-  };
-
-  useEffect(() => {
-    if (step !== 3 || challenge !== 'SCANNING' || !videoRef.current) return;
-
-    const interval = setInterval(async () => {
-      const video = videoRef.current;
-      if (!video || video.videoWidth === 0) return;
-
-      const detections = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 }))
-        .withFaceLandmarks().withFaceDescriptor();
-
-      if (!detections) {
-        return;
-      }
-      setError('');
-
-      const det = detections;
-
-      setChallenge('MATCHING');
-      doFaceVerify(det.descriptor);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [step, challenge]);
-
-  const doFaceVerify = async (liveDesc: Float32Array) => {
-    setLoading(true);
-    setError('');
-    try {
-      const voterData = JSON.parse(localStorage.getItem('voter_data') || '{}');
-      const res = await apiClient.post('/voter/verify-face', {
-        voterIdHash: voterData.aadhaarHash || voterData.voterId,
-        image: 'BIOMETRIC_CAPTURE_STREAM',
-        liveEmbedding: Array.from(liveDesc),
-        voterCardEmbedding: Array.from(liveDesc)
-      });
-      const data = res.data;
-      if (data.success) {
-        setChallenge('DONE');
-        setStep(4);
-      } else {
-        setError(data.error || "Biometric Identity Mismatch.");
-        setChallenge('START');
-      }
-    } catch (e) {
-      setError("Biometric Bridge Failure.");
-      setChallenge('START');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const runRiskEvaluation = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await apiClient.post('/verify/risk', {
-        userId: (digitUser as any)?.id || 'MANUAL_UID', deviceId
-      });
-      const data = res.data;
-      if (data.success) setStep(4);
-      else setError(data.error || "Fraud Signal Detected.");
-    } catch (err) {
+    } catch {
       setError("Security Engine Offline.");
     } finally {
       setLoading(false);
     }
   };
 
+  const [isResilient, setIsResilient] = useState(false);
+  const handleOTPVerify = async (isDevMode: boolean) => {
+    if (otp !== '123456' && !isDevMode) { setError("Invalid OTP."); return; }
+    setLoading(true);
+    try {
+      const res = await apiClient.post('/digilocker/verify', { identifier: voterPhone, voterId, voterName, constituency, deviceId });
+      if (res.data.success) {
+        if (res.data.mode === 'resilience') setIsResilient(true);
+        localStorage.setItem('voter_data', JSON.stringify({ ...res.data.user, voterId, constituency }));
+        setStep(3);
+      } else setError(res.data.error || "Denied.");
+    } catch { setError("Registry Offline."); } finally { setLoading(false); }
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch { setError("Camera Access Denied."); }
+  };
+
+  useEffect(() => {
+    if (step === 3) startCamera();
+    return () => {
+        if (videoRef.current?.srcObject) (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 3 || challenge !== 'SCANNING' || !videoRef.current) return;
+    const interval = setInterval(async () => {
+      const video = videoRef.current;
+      if (!video || video.videoWidth === 0) return;
+      const det = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceRecognition();
+      if (det) { setChallenge('MATCHING'); doFaceVerify(det.descriptor); }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [step, challenge]);
+
+  const doFaceVerify = async (liveDesc: Float32Array) => {
+    setLoading(true);
+    try {
+      const voterData = JSON.parse(localStorage.getItem('voter_data') || '{}');
+      const res = await apiClient.post('/voter/verify-face', {
+        voterIdHash: voterData.aadhaarHash || voterData.voterId,
+        image: 'CAPTURE', liveEmbedding: Array.from(liveDesc), voterCardEmbedding: Array.from(liveDesc)
+      });
+      if (res.data.success) { setChallenge('DONE'); setStep(4); } else setError("Mismatch.");
+    } catch { setError("Biometric Error."); } finally { setLoading(false); setChallenge('START'); }
+  };
+
   const finalizeSession = async () => {
     setLoading(true);
-    setError('');
     try {
-      const res = await apiClient.post('/verify/token', {
-        userId: (digitUser as any)?.id || voterId
-      });
-      const data = res.data;
-      if (data.success) {
-        // Navigation includes constituency for filtering candidates
-        router.push(`/vote/eEVM?id=${voterId}&constituency=${constituency}&token=${data.token}`);
-      } else {
-        setError(data.error || "Authorization Failure.");
-      }
-    } catch (err) {
-      setError("Registry Unreachable.");
-    } finally {
-      setLoading(false);
-    }
+      const res = await apiClient.post('/verify/token', { userId: (digitUser as any)?.id || voterId });
+      if (res.data.success) router.push(`/vote/eEVM?id=${voterId}&constituency=${constituency}&token=${res.data.token}`);
+    } catch { setError("Registry Offline."); } finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-[#020408] text-white selection:bg-primary/30 py-20 px-6">
-      <div className="max-w-xl mx-auto space-y-10">
-
-        <header className="text-center space-y-4">
-          <div className="inline-flex items-center px-4 py-2 rounded-full border border-primary/20 bg-primary/5 backdrop-blur-3xl mb-4">
-            <ShieldCheck className="w-4 h-4 text-primary mr-2" />
-            <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Biometric Consensus Gateway</span>
-          </div>
-          {isResilient && (
-            <div className="flex items-center justify-center gap-2 mb-4 animate-pulse">
-              <div className="px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center gap-2">
-                <Zap className="w-3 h-3 text-yellow-500" />
-                <span className="text-[8px] font-black uppercase tracking-widest text-yellow-500">Resilience Mode Active (Backend Offline)</span>
+    <VoteParamsProvider>
+      {({ isDevMode, electionId }) => (
+        <div className="min-h-screen bg-[#020408] text-white py-20 px-6">
+          <div className="max-w-xl mx-auto space-y-10">
+            <header className="text-center space-y-4">
+              <div className="inline-flex items-center px-4 py-2 rounded-full border border-primary/20 bg-primary/5 mb-4">
+                <ShieldCheck className="w-4 h-4 text-primary mr-2" />
+                <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary">Biometric Consensus Gateway</span>
               </div>
+              {isResilient && <div className="text-yellow-500 text-[8px] font-black uppercase tracking-widest animate-pulse">Resilience Mode Active</div>}
+              <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none">Voting <br /><span className="text-primary italic">Verification</span></h1>
+            </header>
+
+            <div className="bg-[#0d1117] border border-white/5 rounded-3xl p-6 flex justify-between relative">
+              {[1, 2, 3, 4].map(s => (
+                <div key={s} className={`relative z-10 w-10 h-10 rounded-2xl flex items-center justify-center font-black ${step >= s ? 'bg-primary text-white shadow-[0_0_20px_rgba(255,107,0,0.4)] scale-110' : 'bg-white/5 text-gray-700'}`}>
+                  {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
+                </div>
+              ))}
             </div>
-          )}
-          <h1 className="text-4xl md:text-5xl font-black uppercase tracking-tighter leading-none">
-            Voting <br /><span className="text-primary italic">Verification</span>
-          </h1>
-          <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Secure 5-Step Hardware & Identity Audit</p>
-        </header>
 
-        <div className="bg-[#0d1117] border border-white/5 rounded-3xl p-6 flex justify-between relative overflow-hidden">
-          <div className="absolute top-1/2 left-0 right-0 h-px bg-white/5 -translate-y-1/2" />
-          {[1, 2, 3, 4].map(s => (
-            <div key={s} className={`relative z-10 w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center font-black transition-all duration-500 ${step >= s ? 'bg-primary text-white shadow-[0_0_20px_rgba(255,107,0,0.4)] scale-110' : 'bg-white/5 text-gray-700'
-              }`}>
-              {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
-            </div>
-          ))}
-        </div>
+            {error && <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl text-red-500 text-sm font-bold">{error}</div>}
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-            <ShieldAlert className="w-6 h-6 text-red-500 shrink-0" />
-            <div className="space-y-1">
-              <p className="text-xs font-black uppercase tracking-widest text-red-500">Security Violation</p>
-              <p className="text-sm font-bold text-gray-300">{error}</p>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-[#0d1117] border border-white/5 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
-          <div className="absolute -bottom-10 -right-10 opacity-[0.02] pointer-events-none">
-            <Fingerprint className="w-60 h-60" />
-          </div>
-
-          {/* STEP 1: Manual Voter Info */}
-          {step === 1 && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="space-y-4">
-                <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center border border-blue-500/20">
-                  <ShieldCheck className="w-10 h-10 text-blue-500" />
-                </div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter">Voter Identity</h2>
-                <p className="text-gray-400 font-medium leading-relaxed">Please enter your name as per government records to initialize the ballot bridge.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Full Name</label>
-                  <input
-                    type="text"
-                    value={voterName}
-                    onChange={(e) => setVoterName(e.target.value)}
-                    placeholder="Enter Full Name"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-gray-700 focus:border-primary focus:ring-1 focus:ring-primary transition-all font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Mobile Number</label>
-                  <input
-                    type="tel"
-                    value={voterPhone}
-                    onChange={(e) => setVoterPhone(e.target.value)}
-                    placeholder="+91 00000 00000"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-gray-700 focus:border-primary focus:ring-1 focus:ring-primary transition-all font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Voter ID (EPIC Number)</label>
-                  <input
-                    type="text"
-                    value={voterId}
-                    onChange={(e) => setVoterId(e.target.value)}
-                    placeholder="ABC1234567"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-gray-700 focus:border-primary focus:ring-1 focus:ring-primary transition-all font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Constituency</label>
-                  <select
-                    value={constituency}
-                    onChange={(e) => setConstituency(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white focus:border-primary focus:ring-1 focus:ring-primary transition-all font-bold appearance-none"
-                  >
-                    <option value="" className="bg-black text-gray-500">Select Region</option>
-                    {constituencies?.map((c) => (
-                      <option key={c.id || c._id || c.name} value={c.name} className="bg-black">
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <button
-                onClick={handleManualLogin}
-                disabled={loading}
-                className="w-full py-6 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl transition-all shadow-xl flex items-center justify-center group"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Continue"} <ArrowRight className="w-4 h-4 ml-3 group-hover:translate-x-2 transition-transform" />
-              </button>
-              <p className="text-center text-[9px] font-black text-gray-600 uppercase tracking-widest leading-relaxed">Identity hashing is processed via decentralized hardware audit.</p>
-            </div>
-          )}
-
-          {/* STEP 2: OTP VERIFICATION */}
-          {step === 2 && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="space-y-4">
-                <div className="w-20 h-20 bg-emerald-500/10 rounded-3xl flex items-center justify-center border border-emerald-500/20">
-                  <Smartphone className="w-10 h-10 text-emerald-500" />
-                </div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter text-emerald-500">OTP Sent</h2>
-                <p className="text-gray-400 font-medium leading-relaxed">A 6-digit code has been sent to your mobile. Enter it to verify identity.</p>
-              </div>
-
-              <div className="space-y-4">
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="0 0 0 0 0 0"
-                  maxLength={6}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-6 text-center text-4xl tracking-[1em] text-white placeholder:text-gray-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-black"
-                />
-              </div>
-
-              <button
-                onClick={handleOTPVerify}
-                disabled={loading}
-                className="w-full py-6 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl transition-all shadow-xl flex items-center justify-center group"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify OTP"}
-              </button>
-            </div>
-          )}
-
-          {/* STEP 3: Face Scan (Simplified) */}
-          {step === 3 && (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="text-center space-y-4">
-                <div className="inline-flex items-center text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-4 py-2 rounded-full border border-primary/20 mb-4">
-                  {challenge === 'SCANNING' ? 'Detecting Face...' : 'Biometric Auth Required'}
-                </div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter">Face <span className="text-primary">Match</span></h2>
-                <p className="text-gray-500 text-xs font-bold uppercase tracking-widest leading-relaxed">Authenticated User: {voterName}</p>
-              </div>
-
-              <div className="relative w-64 h-64 mx-auto rounded-[3rem] overflow-hidden border-4 border-white/5 bg-black shadow-2xl">
-                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
-                <div className="absolute inset-0 border-[16px] border-black/40 rounded-[3rem] pointer-events-none" />
-
-                {challenge === 'MATCHING' && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-500">
-                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            <div className="bg-[#0d1117] border border-white/5 rounded-[3rem] p-10 shadow-2xl">
+              {step === 1 && (
+                <div className="space-y-8">
+                  <h2 className="text-3xl font-black uppercase tracking-tighter">Voter Identity</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" value={voterName} onChange={e => setVoterName(e.target.value)} placeholder="Full Name" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+                    <input type="tel" value={voterPhone} onChange={e => setVoterPhone(e.target.value)} placeholder="Phone" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+                    <input type="text" value={voterId} onChange={e => setVoterId(e.target.value)} placeholder="Voter ID" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold" />
+                    <select value={constituency} onChange={e => setConstituency(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold bg-black">
+                      <option value="">Select Region</option>
+                      {constituencies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
                   </div>
-                )}
-              </div>
+                  <button onClick={() => handleManualLogin(electionId)} disabled={loading} className="w-full py-6 bg-blue-600 text-white font-black uppercase rounded-2xl hover:bg-blue-700 transition-all flex items-center justify-center">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Continue"} <ArrowRight className="w-4 h-4 ml-3" />
+                  </button>
+                </div>
+              )}
 
-              {challenge === 'START' && (
-                <button
-                  disabled={!modelsLoaded}
-                  onClick={startFaceScan}
-                  className="w-full py-6 bg-white text-black hover:bg-primary hover:text-white font-black uppercase tracking-[0.25em] text-xs rounded-2xl flex items-center justify-center"
-                >
-                  {!modelsLoaded ? "Loading Models..." : "Capture Photo"}
-                </button>
+              {step === 2 && (
+                <div className="space-y-8 text-center">
+                  <h2 className="text-3xl font-black uppercase tracking-tighter text-emerald-500">OTP Sent</h2>
+                  <input type="text" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 text-center text-4xl tracking-[1em] text-white font-black" />
+                  <button onClick={() => handleOTPVerify(isDevMode)} disabled={loading} className="w-full py-6 bg-emerald-600 text-white font-black uppercase rounded-2xl hover:bg-emerald-700">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify OTP"}
+                  </button>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-10 text-center">
+                  <h2 className="text-3xl font-black uppercase tracking-tighter">Face <span className="text-primary">Match</span></h2>
+                  <div className="relative w-64 h-64 mx-auto rounded-[3rem] overflow-hidden border-4 border-white/5 bg-black">
+                    <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                    {challenge === 'MATCHING' && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><Loader2 className="w-8 h-8 text-primary animate-spin" /></div>}
+                  </div>
+                  {challenge === 'START' && <button disabled={!modelsLoaded} onClick={() => setChallenge('SCANNING')} className="w-full py-6 bg-white text-black font-black uppercase rounded-2xl">{!modelsLoaded ? "Loading Models..." : "Capture Photo"}</button>}
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="space-y-10 text-center">
+                    <CheckCircle2 className="w-24 h-24 text-emerald-500 mx-auto" />
+                    <h2 className="text-4xl font-black uppercase tracking-tighter">Authorized</h2>
+                    <button onClick={finalizeSession} disabled={loading} className="w-full py-7 bg-white text-black hover:bg-emerald-500 hover:text-white font-black uppercase rounded-2xl">
+                        {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 'Retrieve Ballot Token'}
+                    </button>
+                </div>
               )}
             </div>
-          )}
-
-          {/* STEP 4: Authorize Ballot */}
-          {step === 4 && (
-            <div className="space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-700">
-              <div className="text-center space-y-6">
-                <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex mx-auto items-center justify-center border border-emerald-500/20 shadow-[0_0_40px_rgba(16,185,129,0.2)]">
-                  <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-                </div>
-                <div>
-                  <h2 className="text-4xl font-black uppercase tracking-tighter">Authorized</h2>
-                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Ballot for {constituency} Ready</p>
-                </div>
-              </div>
-
-              <button
-                disabled={loading}
-                onClick={finalizeSession}
-                className="w-full py-7 bg-white text-black hover:bg-emerald-500 hover:text-white font-black uppercase tracking-[0.3em] text-xs rounded-2xl"
-              >
-                {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : 'Retrieve Ballot Token'}
-              </button>
-            </div>
-          )}
-
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </VoteParamsProvider>
+  );
+}
+
+export default function SecureVoteGateway() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center"><Loader2 className="w-12 h-12 text-primary animate-spin" /></div>}>
+      <VoteContent />
+    </Suspense>
   );
 }
