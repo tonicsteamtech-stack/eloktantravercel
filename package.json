@@ -2,7 +2,13 @@
   "name": "eloktantra-monorepo",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@9.15.9",
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "services/*",
+    "desktop-client"
+  ],
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --concurrency 20",
