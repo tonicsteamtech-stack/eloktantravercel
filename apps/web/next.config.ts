@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@eloktantra/types"],
+  transpilePackages: ["@eloktantra/types", "@eloktantra/config"],
   eslint: {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors.

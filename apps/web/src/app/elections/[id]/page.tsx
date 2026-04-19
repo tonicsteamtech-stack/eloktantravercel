@@ -10,7 +10,8 @@ interface Candidate {
   party: string;
   constituency: string;
   criminal_cases: number;
-  assets: number;
+  net_worth?: string | number;
+  assets?: number;
 }
 
 export default function CandidatesPage() {
@@ -21,7 +22,7 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedParty, setSelectedParty] = useState('All');
-  const [sortBy, setSortBy] = useState<'name' | 'assets' | 'criminal_cases'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'net_worth' | 'criminal_cases'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [error, setError] = useState<string | null>(null);
 
@@ -61,8 +62,8 @@ export default function CandidatesPage() {
 
   const sortedCandidates = useMemo(() => {
     return [...candidates].sort((a, b) => {
-      let valA = a[sortBy];
-      let valB = b[sortBy];
+      const valA = sortBy === 'net_worth' ? Number(a.net_worth ?? a.assets ?? 0) : a[sortBy];
+      const valB = sortBy === 'net_worth' ? Number(b.net_worth ?? b.assets ?? 0) : b[sortBy];
       
       if (typeof valA === 'string' && typeof valB === 'string') {
         const compare = valA.localeCompare(valB);
@@ -138,7 +139,7 @@ export default function CandidatesPage() {
                 className="bg-secondary/50 border border-white/10 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
                 <option value="name">Name</option>
-                <option value="assets">Net Worth</option>
+                <option value="net_worth">Net Worth</option>
                 <option value="criminal_cases">Criminal Cases</option>
             </select>
             
@@ -210,7 +211,7 @@ export default function CandidatesPage() {
                     <div>
                       <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Declared Assets</div>
                       <div className="text-base md:text-lg font-bold text-gray-200">
-                        ₹{(Number(candidate.assets || 0) / 10000000).toFixed(2)}Cr
+                        ₹{(Number(candidate.net_worth ?? candidate.assets ?? 0) / 10000000).toFixed(2)}Cr
                       </div>
                     </div>
                     <div>

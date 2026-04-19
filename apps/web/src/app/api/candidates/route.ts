@@ -41,6 +41,8 @@ export async function GET(request: NextRequest) {
       name: c.name,
       party: c.party || c.party_name || 'Independent',
       constituency: c.constituency || 'General',
+      criminal_cases: Number(c.criminal_cases || c.criminalCases || 0),
+      net_worth: c.net_worth ?? c.assets ?? c.netWorth ?? 0,
       electionId: c.electionId || c.election_id,
       election: c.election, // Keep raw election name for fuzzy matching
     }));
