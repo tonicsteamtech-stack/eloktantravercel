@@ -7,9 +7,7 @@
     "packages/*",
     "services/*"
   ],
-  "engines": {
-    "node": "20.x"
-  },
+
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --concurrency 20",
