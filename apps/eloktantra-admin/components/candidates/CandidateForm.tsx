@@ -9,7 +9,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Plus, Trash2, Save, X, ChevronRight, User, Shield, Globe, Award } from 'lucide-react';
 import { Party, Constituency, Election } from '@/types';
-import { contentAPI as backendAPI, adminGetParties, adminGetConstituencies, adminCreateCandidate, adminGetElections } from '@/lib/api';
+import { contentAPI as backendAPI, adminGetParties, adminGetConstituencies, adminCreateCandidate, adminUpdateCandidate, adminGetElections } from '@/lib/api';
 
 const candidateSchema = z.object({
   name: z.string().trim().min(1, 'Full name is required'),

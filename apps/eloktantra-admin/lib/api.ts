@@ -45,6 +45,9 @@ export const adminGetCandidates = (params: { electionId?: string, constituencyId
 export const adminCreateCandidate = (data: any) =>
   votingAPI.post('/api/admin/candidate', data);
 
+export const adminUpdateCandidate = (id: string, data: any) =>
+  votingAPI.put(`/api/admin/candidate?id=${id}`, data);
+
 export const adminCreateIssue = (data: any) =>
   votingAPI.post('/api/admin/issue', data);
 
