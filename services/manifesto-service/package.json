@@ -8,8 +8,8 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@eloktantra/config": "*",
-    "@eloktantra/utils": "*",
+    "@eloktantra/config": "1.0.0",
+    "@eloktantra/utils": "1.0.0",
     "@fastify/cors": "^8.3.0",
     "@supabase/supabase-js": "^2.39.0",
     "dotenv": "^16.3.1",
