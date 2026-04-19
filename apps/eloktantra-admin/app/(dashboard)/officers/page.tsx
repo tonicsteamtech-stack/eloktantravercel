@@ -87,7 +87,7 @@ export default function OfficersPage() {
             <Edit2 className="w-4 h-4" />
           </button>
           <button 
-            onClick={() => setIsDeleting(o._id)}
+            onClick={() => setIsDeleting(o.id || o._id || null)}
             className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
           >
             <Trash2 className="w-4 h-4" />
