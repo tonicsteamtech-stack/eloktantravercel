@@ -582,7 +582,7 @@ function VotingContent() {
 
         // Redirect to Certificate of Acknowledgement
         const params = new URLSearchParams();
-        params.set('election', election?.title || election?.name || 'Election Unit');
+        params.set('election', election?.title || 'Election Unit');
         params.set('constituency', election?.constituency || 'National');
         params.set('hash', voteHash);
         params.set('voterId', (digitUser as any)?.aadhaarHash?.slice(0, 12).toUpperCase() || 'CITIZEN-IDENTITY-VERIFIED');
