@@ -356,7 +356,7 @@ function VotingContent() {
               const ctx = canvas.getContext("2d");
               if (ctx) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                detections.forEach(det => {
+                detections.forEach((det: any) => {
                   const { x, y, width, height } = (det as any).detection.box;
                   ctx.strokeStyle = isAlignedNow ? "#22c55e" : "#ef4444";
                   ctx.lineWidth = 3;
@@ -582,7 +582,7 @@ function VotingContent() {
 
         // Redirect to Certificate of Acknowledgement
         const params = new URLSearchParams();
-        params.set('election', election?.title || election?.name || 'Election Unit');
+        params.set('election', election?.title || 'Election Unit');
         params.set('constituency', election?.constituency || 'National');
         params.set('hash', voteHash);
         params.set('voterId', (digitUser as any)?.aadhaarHash?.slice(0, 12).toUpperCase() || 'CITIZEN-IDENTITY-VERIFIED');

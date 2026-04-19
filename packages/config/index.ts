@@ -1,3 +1,11 @@
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+
+// Load the root .env file if it exists
+dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
+// Also try the current directory in case it's run from the root
+dotenv.config();
+
 export type DeploymentEnv = 'development' | 'test' | 'production';
 
 export interface ServiceEndpoint {
