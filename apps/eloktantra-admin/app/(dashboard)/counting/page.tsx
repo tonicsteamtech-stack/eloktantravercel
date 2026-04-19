@@ -25,6 +25,7 @@ interface VoteData {
 interface TallyResult {
   candidateId: string;
   candidateName?: string;
+  party?: string;
   votes: number;
 }
 
@@ -165,8 +166,8 @@ export default function CountingPage() {
         // ⚡ Optimistic Update & Animation Trigger
         setResults(prevResults => {
           const newResults = prevResults.map(r => {
-            if (r.candidateId === candidateId || r.candidate_id === candidateId) {
-              return { ...r, votes: r.votes + 1, vote_count: (r.votes + 1).toString() };
+            if (r.candidateId === candidateId) {
+              return { ...r, votes: r.votes + 1 };
             }
             return r;
           });
